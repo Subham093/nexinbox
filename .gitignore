@@ -1,0 +1,52 @@
+# ══════════════════════════════════════════════════
+#  .gitignore — Files to NEVER upload to GitHub
+# ══════════════════════════════════════════════════
+
+# ── SECRET KEYS — NEVER commit this! ──────────────
+.env
+
+# ── Database — contains your real emails! ─────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Python cache ──────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# ── Virtual environment ────────────────────────────
+venv/
+env/
+ENV/
+.venv/
+
+# ── VS Code settings ───────────────────────────────
+.vscode/
+*.code-workspace
+
+# ── Windows system files ───────────────────────────
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# ── Mac system files ───────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# ── Logs ───────────────────────────────────────────
+*.log
+logs/
+
+# ── Distribution / packaging ───────────────────────
+dist/
+build/
+*.egg-info/
+
+# ── pytest ─────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage

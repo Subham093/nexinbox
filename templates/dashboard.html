@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{{ title }}</title>
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✉️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0a0a0f;
+      --surface: #111118;
+      --border:  rgba(255,255,255,0.07);
+      --accent:  #4f8ef7;
+      --accent2: #a78bfa;
+      --high:    #f87171;
+      --medium:  #fbbf24;
+      --low:     #34d399;
+      --text:    #f0f0f5;
+      --muted:   #6b7280;
+      --sw:      240px;
+    }
+    html,body { height:100%; background:var(--bg); color:var(--text);
+      font-family:'DM Sans',sans-serif; overflow-x:hidden; }
+    body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+      background-image:
+        linear-gradient(rgba(79,142,247,0.025) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(79,142,247,0.025) 1px,transparent 1px);
+      background-size:40px 40px; }
+
+    .layout { display:flex; min-height:100vh; position:relative; z-index:1; }
+
+    /* ══ SIDEBAR ══ */
+    .sidebar { width:var(--sw); background:var(--surface); border-right:1px solid var(--border);
+      display:flex; flex-direction:column; position:fixed; top:0; left:0; height:100vh; z-index:100; }
+    .sidebar-logo { padding:20px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; gap:10px; }
+    .logo-icon { width:32px; height:32px; border-radius:8px; flex-shrink:0;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:grid; place-items:center; font-size:15px; }
+    .logo-label { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; letter-spacing:.06em; }
+
+    /* Search in sidebar */
+    .sidebar-search { padding:12px; border-bottom:1px solid var(--border); }
+    .search-form { display:flex; align-items:center; gap:8px;
+      background:rgba(255,255,255,0.04); border:1px solid var(--border);
+      border-radius:8px; padding:7px 12px; transition:border-color .15s; }
+    .search-form:focus-within { border-color:var(--accent); }
+    .search-icon { font-size:12px; color:var(--muted); flex-shrink:0; }
+    .search-input { background:none; border:none; outline:none; color:var(--text);
+      font-family:'DM Sans',sans-serif; font-size:12px; width:100%; }
+    .search-input::placeholder { color:var(--muted); }
+
+    .sb-section { padding:12px 12px 4px; }
+    .sb-label { font-size:10px; font-weight:600; letter-spacing:.1em; color:var(--muted);
+      text-transform:uppercase; padding:0 8px; margin-bottom:4px; }
+    .nav-item { display:flex; align-items:center; gap:9px; padding:7px 12px;
+      border-radius:8px; font-size:13px; color:#9ca3af;
+      text-decoration:none; transition:all .15s; margin-bottom:1px; }
+    .nav-item:hover { background:rgba(255,255,255,0.05); color:var(--text); }
+    .nav-item.active { background:rgba(79,142,247,0.12); color:var(--accent); }
+    .nav-icon { font-size:13px; width:18px; text-align:center; }
+    .nav-badge { margin-left:auto; font-size:10px; font-weight:600;
+      padding:2px 6px; border-radius:100px; }
+    .b-high   { background:rgba(248,113,113,0.15); color:var(--high); }
+    .b-medium { background:rgba(251,191,36,0.15);  color:var(--medium); }
+    .b-low    { background:rgba(52,211,153,0.15);  color:var(--low); }
+    .b-count  { background:rgba(255,255,255,0.07); color:var(--muted); }
+    .sb-divider { height:1px; background:var(--border); margin:6px 12px; }
+
+    .sidebar-user { margin-top:auto; padding:12px; border-top:1px solid var(--border);
+      display:flex; align-items:center; gap:10px; }
+    .user-avatar { width:30px; height:30px; border-radius:50%; overflow:hidden; flex-shrink:0;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      display:grid; place-items:center; font-size:12px; font-weight:600; }
+    .user-avatar img { width:100%; height:100%; object-fit:cover; }
+    .user-info { flex:1; min-width:0; }
+    .user-name  { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .user-email { font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .logout-btn { font-size:11px; color:var(--muted); text-decoration:none;
+      padding:4px 8px; border-radius:6px; transition:all .15s; white-space:nowrap; }
+    .logout-btn:hover { background:rgba(248,113,113,0.1); color:var(--high); }
+
+    /* ══ MAIN ══ */
+    .main { margin-left:var(--sw); flex:1; min-width:0; display:flex; flex-direction:column; }
+
+    .topbar { padding:16px 28px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+      background:rgba(10,10,15,0.85); backdrop-filter:blur(12px);
+      position:sticky; top:0; z-index:50; gap:16px; }
+    .topbar-left h1 { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; }
+    .topbar-left p  { font-size:12px; color:var(--muted); margin-top:2px; }
+    .topbar-right   { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+
+    .btn-primary { display:inline-flex; align-items:center; gap:7px;
+      background:var(--accent); color:white; font-family:'DM Sans',sans-serif;
+      font-size:12px; font-weight:500; padding:8px 16px; border-radius:9px;
+      border:none; cursor:pointer; transition:all .2s; white-space:nowrap; text-decoration:none; }
+    .btn-primary:hover { background:#3b7de8; transform:translateY(-1px);
+      box-shadow:0 4px 16px rgba(79,142,247,0.3); }
+    .btn-secondary { display:inline-flex; align-items:center; gap:7px;
+      background:rgba(255,255,255,0.05); color:var(--muted);
+      font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500;
+      padding:8px 14px; border-radius:9px; border:1px solid var(--border);
+      cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .btn-secondary:hover { border-color:rgba(255,255,255,0.15); color:var(--text); }
+
+    .content { padding:22px 28px; flex:1; }
+
+    /* ══ STAT CARDS ══ */
+    .stats-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:18px; }
+    .stat-card { background:var(--surface); border:1px solid var(--border);
+      border-radius:12px; padding:14px 16px; transition:all .2s; cursor:default; }
+    .stat-card:hover { border-color:rgba(255,255,255,0.12); transform:translateY(-2px); }
+    .stat-label { font-size:10px; color:var(--muted); font-weight:500;
+      text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px; }
+    .stat-value { font-family:'Syne',sans-serif; font-size:26px; font-weight:700; line-height:1; }
+    .stat-sub   { font-size:10px; color:var(--muted); margin-top:3px; }
+    .stat-bar   { height:2px; border-radius:1px; margin-top:10px; background:var(--border); overflow:hidden; }
+    .stat-bar-fill { height:100%; border-radius:1px; transition:width 1.2s ease; }
+    .c-total  .stat-value { color:var(--text); }
+    .c-unread .stat-value { color:var(--accent); }
+    .c-read   .stat-value { color:var(--low); }
+    .c-high   .stat-value { color:var(--high); }
+    .c-medium .stat-value { color:var(--medium); }
+    .c-low    .stat-value { color:var(--low); }
+
+    /* ══ SEARCH RESULTS BANNER ══ */
+    .search-banner { display:flex; align-items:center; justify-content:space-between;
+      background:rgba(79,142,247,0.08); border:1px solid rgba(79,142,247,0.2);
+      border-radius:10px; padding:10px 16px; margin-bottom:14px; font-size:13px; }
+    .search-banner-text { color:var(--accent); }
+    .search-banner-text span { color:var(--text); font-weight:500; }
+    .clear-search { font-size:11px; color:var(--muted); text-decoration:none;
+      padding:4px 10px; border-radius:6px; border:1px solid var(--border); transition:all .15s; }
+    .clear-search:hover { color:var(--text); border-color:rgba(255,255,255,0.15); }
+
+    /* ══ EMAIL SECTION ══ */
+    .email-section { background:var(--surface); border:1px solid var(--border);
+      border-radius:14px; overflow:hidden; }
+    .email-section-hdr { padding:13px 20px; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+    .section-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+      display:flex; align-items:center; gap:8px; }
+    .count-badge { font-size:10px; padding:2px 8px; border-radius:100px;
+      background:rgba(255,255,255,0.06); color:var(--muted); font-family:'DM Sans',sans-serif; }
+    .filter-chips { display:flex; gap:5px; flex-wrap:wrap; }
+    .chip { font-size:11px; padding:3px 11px; border-radius:100px;
+      border:1px solid var(--border); color:var(--muted);
+      text-decoration:none; transition:all .15s; white-space:nowrap; }
+    .chip:hover { border-color:rgba(255,255,255,0.15); color:var(--text); }
+    .chip.active { border-color:var(--accent); color:var(--accent);
+      background:rgba(79,142,247,0.08); }
+
+    /* ══ EMAIL ROWS ══ */
+    .email-row { display:grid; grid-template-columns:3px 36px 1fr auto auto 90px;
+      align-items:center; gap:12px; padding:12px 20px;
+      border-bottom:1px solid var(--border); text-decoration:none;
+      transition:background .15s; }
+    .email-row:last-child { border-bottom:none; }
+    .email-row:hover { background:rgba(255,255,255,0.025); }
+    .email-row.unread { background:rgba(79,142,247,0.018); }
+
+    .p-stripe { width:3px; height:32px; border-radius:2px; flex-shrink:0; }
+    .s-high   { background:var(--high);   box-shadow:0 0 6px rgba(248,113,113,0.4); }
+    .s-medium { background:var(--medium); }
+    .s-low    { background:var(--low); }
+
+    .sender-av { width:34px; height:34px; border-radius:50%;
+      display:grid; place-items:center; font-size:13px;
+      font-weight:700; color:white; flex-shrink:0; }
+
+    .email-info { min-width:0; }
+    .e-sender  { font-size:13px; font-weight:400; color:var(--text);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .email-row.unread .e-sender { font-weight:600; }
+    .e-subject { font-size:11.5px; color:var(--muted);
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
+    .email-row.unread .e-subject { color:#9ca3af; }
+
+    .cat-tag { font-size:10px; font-weight:500; padding:3px 9px;
+      border-radius:100px; white-space:nowrap; flex-shrink:0; }
+    .cat-Work        { background:rgba(79,142,247,0.12);  color:#93c5fd; }
+    .cat-Finance     { background:rgba(251,191,36,0.12);  color:#fcd34d; }
+    .cat-Promotions  { background:rgba(167,139,250,0.12); color:#c4b5fd; }
+    .cat-Social      { background:rgba(52,211,153,0.12);  color:#6ee7b7; }
+    .cat-Newsletters { background:rgba(251,146,60,0.12);  color:#fdba74; }
+    .cat-Other       { background:rgba(255,255,255,0.06); color:var(--muted); }
+
+    .pri-badge { font-size:10px; font-weight:700; padding:3px 9px;
+      border-radius:100px; text-transform:uppercase;
+      letter-spacing:.04em; white-space:nowrap; flex-shrink:0; }
+    .p-high   { background:rgba(248,113,113,0.12); color:var(--high); }
+    .p-medium { background:rgba(251,191,36,0.12);  color:var(--medium); }
+    .p-low    { background:rgba(52,211,153,0.12);  color:var(--low); }
+
+    .e-date { font-size:11px; color:var(--muted); text-align:right; white-space:nowrap; }
+
+    .unread-dot { width:6px; height:6px; border-radius:50%;
+      background:var(--accent); display:inline-block; margin-right:3px; flex-shrink:0; }
+
+    /* ══ EMPTY STATE ══ */
+    .empty { padding:60px 20px; text-align:center; }
+    .empty-icon  { font-size:42px; margin-bottom:12px; opacity:.3; }
+    .empty-title { font-family:'Syne',sans-serif; font-size:16px; font-weight:700; margin-bottom:6px; }
+    .empty-sub   { font-size:13px; color:var(--muted); margin-bottom:20px; }
+
+    /* ══ LOADING OVERLAY ══ */
+    .loading-overlay { display:none; position:fixed; inset:0;
+      background:rgba(10,10,15,0.9); backdrop-filter:blur(8px);
+      z-index:999; flex-direction:column; align-items:center;
+      justify-content:center; gap:16px; }
+    .loading-overlay.show { display:flex; }
+    .spinner { width:36px; height:36px; border-radius:50%;
+      border:3px solid var(--border); border-top-color:var(--accent);
+      animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .loading-title { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; }
+    .loading-steps { display:flex; flex-direction:column; gap:8px; margin-top:4px; }
+    .lstep { font-size:12px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+    .lstep-dot { width:6px; height:6px; border-radius:50%; background:var(--border); flex-shrink:0; }
+    .lstep.done   .lstep-dot { background:var(--low); }
+    .lstep.active .lstep-dot { background:var(--accent); animation:pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.8)} }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+    @media(max-width:1100px) { .stats-grid{grid-template-columns:repeat(3,1fr)} }
+    @media(max-width:768px)  { .sidebar{display:none} .main{margin-left:0}
+      .stats-grid{grid-template-columns:repeat(2,1fr)} .content{padding:16px} }
+  </style>
+</head>
+<body>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-title">Analyzing your inbox...</div>
+  <div class="loading-steps">
+    <div class="lstep active" id="s1"><span class="lstep-dot"></span> Connecting to Gmail</div>
+    <div class="lstep" id="s2"><span class="lstep-dot"></span> Fetching emails</div>
+    <div class="lstep" id="s3"><span class="lstep-dot"></span> Running AI analysis</div>
+    <div class="lstep" id="s4"><span class="lstep-dot"></span> Saving to dashboard</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">✉</div>
+      <span class="logo-label">NEX·INBOX</span>
+    </div>
+
+    <!-- Search Box -->
+    <div class="sidebar-search">
+      <form class="search-form" action="/search" method="GET">
+        <span class="search-icon">🔍</span>
+        <input type="text" name="q" class="search-input"
+               placeholder="Search emails..."
+               value="{{ search_query or '' }}"
+               autocomplete="off"/>
+      </form>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-label">Inbox</div>
+      <a href="/dashboard" class="nav-item {% if not active_filter or active_filter=='all' %}active{% endif %}">
+        <span class="nav-icon">📬</span> All Emails
+        <span class="nav-badge b-count">{{ stats.total }}</span>
+      </a>
+      <a href="/filter?read=unread" class="nav-item {% if active_filter=='unread' %}active{% endif %}">
+        <span class="nav-icon">🔵</span> Unread
+        <span class="nav-badge b-count">{{ stats.unread }}</span>
+      </a>
+      <a href="/filter?read=read" class="nav-item {% if active_filter=='read' %}active{% endif %}">
+        <span class="nav-icon">✓</span> Read
+        <span class="nav-badge b-count">{{ stats.read }}</span>
+      </a>
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <div class="sb-label">Priority</div>
+      <a href="/filter?priority=high"   class="nav-item {% if active_filter=='high' %}active{% endif %}">
+        <span class="nav-icon">🔴</span> High
+        <span class="nav-badge b-high">{{ stats.high }}</span>
+      </a>
+      <a href="/filter?priority=medium" class="nav-item {% if active_filter=='medium' %}active{% endif %}">
+        <span class="nav-icon">🟡</span> Medium
+        <span class="nav-badge b-medium">{{ stats.medium }}</span>
+      </a>
+      <a href="/filter?priority=low"    class="nav-item {% if active_filter=='low' %}active{% endif %}">
+        <span class="nav-icon">🟢</span> Low
+        <span class="nav-badge b-low">{{ stats.low }}</span>
+      </a>
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <div class="sb-label">Categories</div>
+      <a href="/filter?category=Work"        class="nav-item {% if active_filter=='Work' %}active{% endif %}">
+        <span class="nav-icon">💼</span> Work
+        <span class="nav-badge b-count">{{ stats.work }}</span>
+      </a>
+      <a href="/filter?category=Finance"     class="nav-item {% if active_filter=='Finance' %}active{% endif %}">
+        <span class="nav-icon">💰</span> Finance
+        <span class="nav-badge b-count">{{ stats.finance }}</span>
+      </a>
+      <a href="/filter?category=Promotions"  class="nav-item {% if active_filter=='Promotions' %}active{% endif %}">
+        <span class="nav-icon">🎁</span> Promotions
+        <span class="nav-badge b-count">{{ stats.promotions }}</span>
+      </a>
+      <a href="/filter?category=Social"      class="nav-item {% if active_filter=='Social' %}active{% endif %}">
+        <span class="nav-icon">👥</span> Social
+        <span class="nav-badge b-count">{{ stats.social }}</span>
+      </a>
+      <a href="/filter?category=Newsletters" class="nav-item {% if active_filter=='Newsletters' %}active{% endif %}">
+        <span class="nav-icon">📰</span> Newsletters
+        <span class="nav-badge b-count">{{ stats.newsletters }}</span>
+      </a>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">
+        {% if user_picture %}<img src="{{ user_picture }}" alt=""/>
+        {% else %}{{ (user_name or 'U')[0].upper() }}{% endif %}
+      </div>
+      <div class="user-info">
+        <div class="user-name">{{ user_name }}</div>
+        <div class="user-email">{{ user_email }}</div>
+      </div>
+      <a href="/logout" class="logout-btn">Out</a>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN ══ -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>
+          {% if search_query %}
+            Search Results
+          {% elif active_filter and active_filter != 'all' %}
+            {{ active_filter | capitalize }} Emails
+          {% else %}
+            Good day, {{ (user_name or '').split()[0] }} 👋
+          {% endif %}
+        </h1>
+        <p>
+          {% if search_query %}
+            {{ emails|length }} result(s) for "{{ search_query }}"
+          {% elif stats.total > 0 %}
+            {{ stats.total }} emails &nbsp;·&nbsp; {{ stats.unread }} unread &nbsp;·&nbsp; {{ stats.high }} need attention
+          {% else %}
+            Connect your inbox to get started
+          {% endif %}
+        </p>
+      </div>
+      <div class="topbar-right">
+        <form method="POST" action="/fetch-emails" onsubmit="showLoading()">
+          <button type="submit" class="btn-primary" id="fetchBtn">
+            ✦ {% if stats.total > 0 %}Check New Emails{% else %}Fetch Emails{% endif %}
+          </button>
+        </form>
+        {% if stats.total > 0 %}
+        <form method="POST" action="/refresh-emails" onsubmit="showLoading()">
+          <button type="submit" class="btn-secondary" title="Wipe and re-fetch all emails">
+            ↺ Full Refresh
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Stat Cards -->
+      <div class="stats-grid">
+        {% set total = stats.total if stats.total > 0 else 1 %}
+        <div class="stat-card c-total">
+          <div class="stat-label">Total</div>
+          <div class="stat-value">{{ stats.total }}</div>
+          <div class="stat-sub">emails fetched</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:100%;background:rgba(240,240,245,0.15)"></div></div>
+        </div>
+        <div class="stat-card c-unread">
+          <div class="stat-label">Unread</div>
+          <div class="stat-value">{{ stats.unread }}</div>
+          <div class="stat-sub">not opened yet</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ (stats.unread/total*100)|int }}%;background:var(--accent)"></div></div>
+        </div>
+        <div class="stat-card c-read">
+          <div class="stat-label">Read</div>
+          <div class="stat-value">{{ stats.read }}</div>
+          <div class="stat-sub">already seen</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ (stats.read/total*100)|int }}%;background:var(--low)"></div></div>
+        </div>
+        <div class="stat-card c-high">
+          <div class="stat-label">High Priority</div>
+          <div class="stat-value">{{ stats.high }}</div>
+          <div class="stat-sub">need attention</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ (stats.high/total*100)|int }}%;background:var(--high)"></div></div>
+        </div>
+        <div class="stat-card c-medium">
+          <div class="stat-label">Medium</div>
+          <div class="stat-value">{{ stats.medium }}</div>
+          <div class="stat-sub">review soon</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ (stats.medium/total*100)|int }}%;background:var(--medium)"></div></div>
+        </div>
+        <div class="stat-card c-low">
+          <div class="stat-label">Low</div>
+          <div class="stat-value">{{ stats.low }}</div>
+          <div class="stat-sub">when you can</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:{{ (stats.low/total*100)|int }}%;background:var(--low)"></div></div>
+        </div>
+      </div>
+
+      <!-- Search Banner -->
+      {% if search_query %}
+      <div class="search-banner">
+        <div class="search-banner-text">
+          🔍 Showing results for <span>"{{ search_query }}"</span>
+          — {{ emails|length }} email(s) found
+        </div>
+        <a href="/dashboard" class="clear-search">✕ Clear search</a>
+      </div>
+      {% endif %}
+
+      <!-- Email List -->
+      <div class="email-section">
+        <div class="email-section-hdr">
+          <div class="section-title">
+            {% if search_query %}Search Results
+            {% else %}Emails{% endif %}
+            <span class="count-badge">{{ emails|length }}</span>
+          </div>
+          {% if not search_query %}
+          <div class="filter-chips">
+            <a href="/dashboard"              class="chip {% if not active_filter or active_filter=='all' %}active{% endif %}">All</a>
+            <a href="/filter?priority=high"   class="chip {% if active_filter=='high' %}active{% endif %}">🔴 High</a>
+            <a href="/filter?priority=medium" class="chip {% if active_filter=='medium' %}active{% endif %}">🟡 Medium</a>
+            <a href="/filter?priority=low"    class="chip {% if active_filter=='low' %}active{% endif %}">🟢 Low</a>
+            <a href="/filter?read=unread"     class="chip {% if active_filter=='unread' %}active{% endif %}">Unread</a>
+          </div>
+          {% endif %}
+        </div>
+
+        {% if emails %}
+          {% for email in emails %}
+          <a href="/email/{{ email.gmail_id }}"
+             class="email-row {% if not email.is_read %}unread{% endif %}"
+             style="animation:fadeIn .3s {{ loop.index0 * 0.02 }}s both">
+            <div class="p-stripe s-{{ email.priority }}"></div>
+            <div class="sender-av" style="background:{{ [
+              'linear-gradient(135deg,#4f8ef7,#a78bfa)',
+              'linear-gradient(135deg,#f87171,#fbbf24)',
+              'linear-gradient(135deg,#34d399,#4f8ef7)',
+              'linear-gradient(135deg,#a78bfa,#f87171)',
+              'linear-gradient(135deg,#fbbf24,#34d399)',
+              'linear-gradient(135deg,#60a5fa,#34d399)'
+            ][loop.index0 % 6] }}">
+              {{ (email.sender or '?')[0] | upper }}
+            </div>
+            <div class="email-info">
+              <div class="e-sender">
+                {% if not email.is_read %}<span class="unread-dot"></span>{% endif %}
+                {{ email.sender | truncate(45) }}
+              </div>
+              <div class="e-subject">{{ email.subject | truncate(75) }}</div>
+            </div>
+            <span class="cat-tag cat-{{ email.category }}">{{ email.category }}</span>
+            <span class="pri-badge p-{{ email.priority }}">{{ email.priority }}</span>
+            <span class="e-date">{{ email.date[:10] if email.date else '' }}</span>
+          </a>
+          {% endfor %}
+
+        {% else %}
+          <div class="empty">
+            {% if search_query %}
+              <div class="empty-icon">🔍</div>
+              <div class="empty-title">No results found</div>
+              <div class="empty-sub">Try a different keyword</div>
+              <a href="/dashboard" class="btn-primary" style="display:inline-flex">← Back to inbox</a>
+            {% else %}
+              <div class="empty-icon">📭</div>
+              <div class="empty-title">No emails here yet</div>
+              <div class="empty-sub">Click "Fetch Emails" to load your Gmail inbox</div>
+              <form method="POST" action="/fetch-emails" onsubmit="showLoading()">
+                <button type="submit" class="btn-primary">✦ Fetch My Emails</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  function showLoading() {
+    document.getElementById('loadingOverlay').classList.add('show');
+    document.getElementById('fetchBtn').disabled = true;
+    const steps = ['s1','s2','s3','s4'];
+    let i = 0;
+    steps.forEach(id => document.getElementById(id).classList.remove('active','done'));
+    document.getElementById('s1').classList.add('active');
+    const iv = setInterval(() => {
+      if (i < steps.length) {
+        if (i > 0) {
+          document.getElementById(steps[i-1]).classList.remove('active');
+          document.getElementById(steps[i-1]).classList.add('done');
+        }
+        document.getElementById(steps[i]).classList.add('active');
+        i++;
+      } else clearInterval(iv);
+    }, 7000);
+  }
+</script>
+</body>
+</html>

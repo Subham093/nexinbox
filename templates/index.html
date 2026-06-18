@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{{ title }}</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✉️</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0a0a0f;
+      --surface:    #111118;
+      --border:     rgba(255,255,255,0.07);
+      --accent:     #4f8ef7;
+      --accent2:    #a78bfa;
+      --high:       #f87171;
+      --medium:     #fbbf24;
+      --low:        #34d399;
+      --text:       #f0f0f5;
+      --muted:      #6b7280;
+      --card:       rgba(255,255,255,0.03);
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background grid ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Glowing orbs in background ── */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+      animation: drift 12s ease-in-out infinite alternate;
+    }
+    .orb-1 { width: 600px; height: 600px; background: rgba(79,142,247,0.12); top: -200px; right: -100px; }
+    .orb-2 { width: 400px; height: 400px; background: rgba(167,139,250,0.10); bottom: -100px; left: -100px; animation-delay: -6s; }
+    .orb-3 { width: 300px; height: 300px; background: rgba(52,211,153,0.07); top: 50%; left: 40%; animation-delay: -3s; }
+
+    @keyframes drift {
+      from { transform: translate(0, 0) scale(1); }
+      to   { transform: translate(30px, -20px) scale(1.05); }
+    }
+
+    /* ── Layout ── */
+    .page {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* ── LEFT PANEL ── */
+    .left {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 80px 60px 80px 80px;
+      animation: fadeUp 0.8s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 64px;
+    }
+    .logo-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+    }
+    .logo-text {
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      color: var(--text);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(79,142,247,0.1);
+      border: 1px solid rgba(79,142,247,0.25);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 100px;
+      margin-bottom: 24px;
+      width: fit-content;
+    }
+    .badge-dot {
+      width: 6px; height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity: 1; transform: scale(1); }
+      50%      { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(40px, 4.5vw, 58px);
+      font-weight: 800;
+      line-height: 1.08;
+      margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+    h1 .line2 {
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 17px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 420px;
+      margin-bottom: 44px;
+      font-weight: 300;
+    }
+
+    /* ── Login button ── */
+    .login-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: white;
+      color: #1a1a2e;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      font-weight: 500;
+      padding: 14px 28px;
+      border-radius: 12px;
+      text-decoration: none;
+      width: fit-content;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      position: relative;
+      overflow: hidden;
+    }
+    .login-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0);
+      transition: background 0.2s;
+    }
+    .login-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+    .login-btn:hover::after { background: rgba(0,0,0,0.06); }
+    .login-btn:active { transform: translateY(0); }
+
+    .google-icon {
+      width: 20px; height: 20px;
+      flex-shrink: 0;
+    }
+
+    .login-note {
+      margin-top: 16px;
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ── Feature pills ── */
+    .features {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 48px;
+    }
+    .feature-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 100px;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+    .pill-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+    /* ── RIGHT PANEL ── */
+    .right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 80px 60px 40px;
+      animation: fadeUp 0.8s 0.2s ease both;
+    }
+
+    .preview-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+    }
+
+    /* Card header */
+    .card-header {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+    .dot-row { display: flex; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .d1 { background: #f87171; }
+    .d2 { background: #fbbf24; }
+    .d3 { background: #34d399; }
+    .card-title-text {
+      font-size: 12px;
+      color: var(--muted);
+      margin-left: 4px;
+      font-family: 'Syne', sans-serif;
+      letter-spacing: 0.04em;
+    }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat-box {
+      background: var(--surface);
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-num {
+      font-family: 'Syne', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Email rows */
+    .email-list { padding: 12px; }
+    .email-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 4px;
+      transition: background 0.15s;
+      animation: fadeUp 0.5s ease both;
+    }
+    .email-row:nth-child(1) { animation-delay: 0.3s; }
+    .email-row:nth-child(2) { animation-delay: 0.5s; }
+    .email-row:nth-child(3) { animation-delay: 0.7s; }
+    .email-row:nth-child(4) { animation-delay: 0.9s; }
+    .email-row:hover { background: rgba(255,255,255,0.04); }
+
+    .priority-bar {
+      width: 3px;
+      height: 36px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .p-high   { background: var(--high); box-shadow: 0 0 8px var(--high); }
+    .p-medium { background: var(--medium); }
+    .p-low    { background: var(--low); }
+
+    .email-info { flex: 1; min-width: 0; }
+    .email-sender {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .email-subject {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+    .email-tag {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 100px;
+      flex-shrink: 0;
+      font-weight: 500;
+    }
+    .tag-work    { background: rgba(79,142,247,0.15); color: #93c5fd; }
+    .tag-finance { background: rgba(251,191,36,0.15);  color: #fcd34d; }
+    .tag-promo   { background: rgba(167,139,250,0.15); color: #c4b5fd; }
+    .tag-social  { background: rgba(52,211,153,0.15);  color: #6ee7b7; }
+
+    /* AI badge on card */
+    .ai-badge {
+      margin: 0 12px 12px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, rgba(79,142,247,0.08), rgba(167,139,250,0.08));
+      border: 1px solid rgba(79,142,247,0.15);
+      border-radius: 10px;
+      font-size: 11px;
+      color: #9ca3af;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ai-spark { font-size: 14px; }
+
+    /* Error message */
+    .error-msg {
+      background: rgba(248,113,113,0.1);
+      border: 1px solid rgba(248,113,113,0.3);
+      color: #fca5a5;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .page { grid-template-columns: 1fr; }
+      .right { display: none; }
+      .left  { padding: 60px 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <div class="page">
+
+    <!-- ═══════════════ LEFT PANEL ═══════════════ -->
+    <div class="left">
+      <div class="logo-row">
+        <div class="logo-icon">✉</div>
+        <span class="logo-text">NEXINBOX</span>
+      </div>
+
+      <div class="badge">
+        <span class="badge-dot"></span>
+        AI-Powered Inbox
+      </div>
+
+      <h1>
+        Your inbox,<br>
+        <span class="line2">finally smart.</span>
+      </h1>
+
+      <p class="subtitle">
+        Connect your Gmail and let AI automatically prioritize, 
+        categorize, and summarize every email — so you always 
+        know what needs your attention first.
+      </p>
+
+      <!-- Show error if login failed -->
+      {% if request.query_params.get('error') %}
+      <div class="error-msg">
+        ⚠️ Login failed. Please try again.
+      </div>
+      {% endif %}
+
+      <!-- THE LOGIN BUTTON -->
+      <a href="/auth/login" class="login-btn">
+        <!-- Google's official colored icon -->
+        <svg class="google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Continue with Google
+      </a>
+
+      <p class="login-note">
+        🔒 Read-only Gmail access &nbsp;·&nbsp; No emails are stored externally
+      </p>
+
+      <div class="features">
+        <div class="feature-pill"><span class="pill-dot" style="background:var(--high)"></span> Priority Detection</div>
+        <div class="feature-pill"><span class="pill-dot" style="background:var(--accent)"></span> Smart Categories</div>
+        <div class="feature-pill"><span class="pill-dot" style="background:var(--accent2)"></span> AI Summaries</div>
+        <div class="feature-pill"><span class="pill-dot" style="background:var(--low)"></span> Unread Tracking</div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ RIGHT PANEL (preview) ═══════════════ -->
+    <div class="right">
+      <div class="preview-card">
+
+        <div class="card-header">
+          <div class="dot-row">
+            <div class="dot d1"></div>
+            <div class="dot d2"></div>
+            <div class="dot d3"></div>
+          </div>
+          <span class="card-title-text">INBOX OVERVIEW</span>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat-box">
+            <div class="stat-num" style="color:var(--text)">50</div>
+            <div class="stat-lbl">Total</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color:var(--high)">8</div>
+            <div class="stat-lbl">High Priority</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-num" style="color:var(--accent)">14</div>
+            <div class="stat-lbl">Unread</div>
+          </div>
+        </div>
+
+        <div class="email-list">
+          <div class="email-row">
+            <div class="priority-bar p-high"></div>
+            <div class="email-info">
+              <div class="email-sender">Google Cloud</div>
+              <div class="email-subject">Your invoice is ready for review</div>
+            </div>
+            <span class="email-tag tag-finance">Finance</span>
+          </div>
+          <div class="email-row">
+            <div class="priority-bar p-high"></div>
+            <div class="email-info">
+              <div class="email-sender">Priya Sharma</div>
+              <div class="email-subject">Re: Project deadline — urgent</div>
+            </div>
+            <span class="email-tag tag-work">Work</span>
+          </div>
+          <div class="email-row">
+            <div class="priority-bar p-medium"></div>
+            <div class="email-info">
+              <div class="email-sender">GitHub</div>
+              <div class="email-subject">New pull request on your repo</div>
+            </div>
+            <span class="email-tag tag-work">Work</span>
+          </div>
+          <div class="email-row">
+            <div class="priority-bar p-low"></div>
+            <div class="email-info">
+              <div class="email-sender">Swiggy</div>
+              <div class="email-subject">50% off your next order 🎉</div>
+            </div>
+            <span class="email-tag tag-promo">Promo</span>
+          </div>
+        </div>
+
+        <div class="ai-badge">
+          <span class="ai-spark">✦</span>
+          AI analyzed 30 emails · 3 need immediate attention
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
