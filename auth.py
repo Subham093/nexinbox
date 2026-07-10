@@ -15,11 +15,6 @@
 # Routes in this file (all prefixed with /auth in main.py):
 #   GET /auth/login     → Step 2: redirect to Google
 #   GET /auth/callback  → Steps 4-7: handle Google's response
-# ============================================================
-
-# ============================================================
-#  auth.py — Google OAuth 2.0 Login Flow
-# ============================================================
 
 import os
 import httpx
@@ -31,7 +26,7 @@ load_dotenv()
 
 GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI         = "http://localhost:8000/auth/callback"
+REDIRECT_URI = os.getenv("REDIRECT_URI", "http://localhost:8000/auth/callback")
 GOOGLE_AUTH_URL      = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL     = "https://oauth2.googleapis.com/token"
 GOOGLE_USER_URL      = "https://www.googleapis.com/oauth2/v2/userinfo"
