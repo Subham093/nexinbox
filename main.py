@@ -12,19 +12,20 @@ load_dotenv()
 
 try:
     from database import init_db
-except ImportError:
-    print("⚠️  database.py not found yet!")
+except ImportError as e:
+    print(f"⚠️  Could not import database.py — real reason: {e}")
+    init_db = None
 
 try:
     from auth import router as auth_router
-except ImportError:
-    print("⚠️  auth.py not found yet!")
+except ImportError as e:
+    print(f"⚠️  Could not import auth.py — real reason: {e}")
     auth_router = None
 
 try:
     from gmail import router as gmail_router
-except ImportError:
-    print("⚠️  gmail.py not found yet!")
+except ImportError as e:
+    print(f"⚠️  Could not import gmail.py — real reason: {e}")
     gmail_router = None
 
 # ══════════════════════════════════════════════════
@@ -107,7 +108,7 @@ async def email_detail(request: Request, email_id: str):
         from database import get_email_by_id, mark_email_as_read
         email_data = get_email_by_id(email_id, user_email)
         if email_data:
-            mark_email_as_read(email_id)
+            mark_email_as_read(email_id, user_email)
     except Exception as e:
         print(f"DB error: {e}")
 
@@ -274,11 +275,15 @@ def _empty_stats():
 @app.on_event("startup")
 async def startup_event():
     print("🚀 Email Intelligence System starting up...")
-    try:
-        init_db()
-        print("✅ Database initialized successfully")
-    except Exception as e:
-        print(f"⚠️  Database init skipped: {e}")
+    if init_db is None:
+        print("❌ Database module failed to import earlier — see the error above. Skipping init_db().")
+    else:
+        try:
+            init_db()
+            print("✅ Database initialized successfully")
+        except Exception as e:
+            print(f"❌ init_db() ran but failed: {e}")
+            import traceback; traceback.print_exc()
     print("✅ Server ready! Visit: http://localhost:8000")
 
 
