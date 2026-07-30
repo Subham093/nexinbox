@@ -44,19 +44,21 @@ class _PooledConnection:
         # Reset the connection before it goes back to the pool. If a query
         # failed somewhere and nobody explicitly called rollback(), the
         # connection could go back to the pool "poisoned" — still sitting
-        # inside a failed transaction. The next unrelated request that
-        # happens to grab this same connection from the pool would then
-        # fail too, with a confusing error that has nothing to do with
-        # its own code. rollback() is a no-op (harmless) if there was
-        # nothing to undo. The try/except just protects against the rare
-        # case where the connection itself is already dead (e.g. network
-        # dropped) — we still want to return it to the pool rather than
-        # crash the whole app over a cleanup step.
+        # inside a failed transaction. rollback() is a no-op (harmless) if
+        # there was nothing to undo.
         try:
             self._raw.rollback()
+            _get_pool().putconn(self._raw)
         except Exception:
-            pass
-        _get_pool().putconn(self._raw)
+            # rollback() itself failed — the connection is actually dead
+            # (network blip, Supabase restart, etc.), not just mid-task.
+            # Tell the pool to discard it instead of handing a broken
+            # connection to the next unrelated request. The pool will
+            # simply open a fresh one next time it's needed.
+            try:
+                _get_pool().putconn(self._raw, close=True)
+            except Exception:
+                pass
 
 
 def get_db():
