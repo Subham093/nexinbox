@@ -44,21 +44,19 @@ class _PooledConnection:
         # Reset the connection before it goes back to the pool. If a query
         # failed somewhere and nobody explicitly called rollback(), the
         # connection could go back to the pool "poisoned" — still sitting
-        # inside a failed transaction. rollback() is a no-op (harmless) if
-        # there was nothing to undo.
+        # inside a failed transaction. The next unrelated request that
+        # happens to grab this same connection from the pool would then
+        # fail too, with a confusing error that has nothing to do with
+        # its own code. rollback() is a no-op (harmless) if there was
+        # nothing to undo. The try/except just protects against the rare
+        # case where the connection itself is already dead (e.g. network
+        # dropped) — we still want to return it to the pool rather than
+        # crash the whole app over a cleanup step.
         try:
             self._raw.rollback()
-            _get_pool().putconn(self._raw)
         except Exception:
-            # rollback() itself failed — the connection is actually dead
-            # (network blip, Supabase restart, etc.), not just mid-task.
-            # Tell the pool to discard it instead of handing a broken
-            # connection to the next unrelated request. The pool will
-            # simply open a fresh one next time it's needed.
-            try:
-                _get_pool().putconn(self._raw, close=True)
-            except Exception:
-                pass
+            pass
+        _get_pool().putconn(self._raw)
 
 
 def get_db():
@@ -198,10 +196,10 @@ def save_email(email_data: dict):
         cursor.execute("""
             INSERT INTO emails
                 (gmail_id, user_email, subject, sender, sender_email,
-                 snippet, body, date, priority, category, ai_summary)
+                 snippet, body, date, is_read, priority, category, ai_summary)
             VALUES
                 (%(gmail_id)s, %(user_email)s, %(subject)s, %(sender)s, %(sender_email)s,
-                 %(snippet)s, %(body)s, %(date)s, %(priority)s, %(category)s, %(ai_summary)s)
+                 %(snippet)s, %(body)s, %(date)s, %(is_read)s, %(priority)s, %(category)s, %(ai_summary)s)
             ON CONFLICT (gmail_id, user_email) DO NOTHING
         """, email_data)
         conn.commit()
@@ -226,10 +224,10 @@ def save_emails_bulk(emails_list: list):
                 cursor.execute("""
                     INSERT INTO emails
                         (gmail_id, user_email, subject, sender, sender_email,
-                         snippet, body, date, priority, category, ai_summary)
+                         snippet, body, date, is_read, priority, category, ai_summary)
                     VALUES
                         (%(gmail_id)s, %(user_email)s, %(subject)s, %(sender)s, %(sender_email)s,
-                         %(snippet)s, %(body)s, %(date)s, %(priority)s, %(category)s, %(ai_summary)s)
+                         %(snippet)s, %(body)s, %(date)s, %(is_read)s, %(priority)s, %(category)s, %(ai_summary)s)
                     ON CONFLICT (gmail_id, user_email) DO NOTHING
                 """, email_data)
                 saved_count += 1
@@ -262,10 +260,10 @@ def replace_all_emails_for_user(user_email: str, emails_list: list):
             cursor.execute("""
                 INSERT INTO emails
                     (gmail_id, user_email, subject, sender, sender_email,
-                     snippet, body, date, priority, category, ai_summary)
+                     snippet, body, date, is_read, priority, category, ai_summary)
                 VALUES
                     (%(gmail_id)s, %(user_email)s, %(subject)s, %(sender)s, %(sender_email)s,
-                     %(snippet)s, %(body)s, %(date)s, %(priority)s, %(category)s, %(ai_summary)s)
+                     %(snippet)s, %(body)s, %(date)s, %(is_read)s, %(priority)s, %(category)s, %(ai_summary)s)
                 ON CONFLICT (gmail_id, user_email) DO NOTHING
             """, email_data)
 
