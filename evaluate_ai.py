@@ -5,24 +5,21 @@
 # the AI classification is.
 #
 # How it works:
-#   1. Loads your emails from database
+#   1. Loads your emails from the database
 #   2. You manually label a sample (20-30 emails)
 #   3. Compares AI labels vs your manual labels
 #   4. Prints accuracy score + confusion matrix
 #
+# NOTE: This now reuses database.py's PostgreSQL/Supabase connection —
+# it used to connect to a local SQLite file directly, which stopped
+# reflecting reality once the app migrated off SQLite. Always evaluate
+# against the real, live data.
+#
 # Run: python evaluate_ai.py
 # ============================================================
 
-import sqlite3
-import os
 from collections import defaultdict
-
-DB_PATH = os.path.join(os.path.dirname(__file__), "email_intelligence.db")
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+from database import get_db
 
 
 # ══════════════════════════════════════════════════
@@ -32,12 +29,17 @@ def get_db():
 def print_emails_for_review(user_email: str, limit: int = 30):
     """Prints emails with their AI classifications for manual review."""
     conn = get_db()
-    rows = conn.execute("""
-        SELECT gmail_id, subject, sender, priority, category, ai_summary
-        FROM emails WHERE user_email = ?
-        ORDER BY date DESC LIMIT ?
-    """, (user_email, limit)).fetchall()
-    conn.close()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT gmail_id, subject, sender, priority, category, ai_summary
+            FROM emails WHERE user_email = %s
+            ORDER BY date DESC LIMIT %s
+        """, (user_email, limit))
+        rows = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
     print(f"\n{'='*80}")
     print(f"📧 EMAILS FOR MANUAL REVIEW ({len(rows)} emails)")
@@ -57,13 +59,6 @@ def print_emails_for_review(user_email: str, limit: int = 30):
 #  STEP 2: Calculate accuracy
 # ══════════════════════════════════════════════════
 def calculate_accuracy(predictions: list, ground_truth: list, label_type: str):
-    """
-    predictions  = what AI said
-    ground_truth = what you manually labelled
-    label_type   = "priority" or "category"
-
-    Returns accuracy percentage
-    """
     if len(predictions) != len(ground_truth):
         print("❌ Length mismatch!")
         return 0
@@ -86,13 +81,6 @@ def calculate_accuracy(predictions: list, ground_truth: list, label_type: str):
 #  STEP 3: Confusion Matrix
 # ══════════════════════════════════════════════════
 def print_confusion_matrix(predictions: list, ground_truth: list, labels: list):
-    """
-    Confusion matrix shows exactly where AI is making mistakes.
-
-    Rows    = Actual (what you said)
-    Columns = Predicted (what AI said)
-    """
-    # Build matrix
     matrix = defaultdict(lambda: defaultdict(int))
     for pred, actual in zip(predictions, ground_truth):
         matrix[actual.lower()][pred.lower()] += 1
@@ -102,7 +90,6 @@ def print_confusion_matrix(predictions: list, ground_truth: list, labels: list):
     print(f"Rows = Actual | Columns = AI Predicted")
     print(f"{'='*60}")
 
-    # Header
     col_w = 12
     print(f"{'Actual':>14}", end="")
     for label in labels:
@@ -110,7 +97,6 @@ def print_confusion_matrix(predictions: list, ground_truth: list, labels: list):
     print()
     print("-" * (14 + col_w * len(labels)))
 
-    # Rows
     for actual in labels:
         print(f"{actual[:14]:>14}", end="")
         for pred in labels:
@@ -126,13 +112,11 @@ def print_confusion_matrix(predictions: list, ground_truth: list, labels: list):
 #  STEP 4: Per-category breakdown
 # ══════════════════════════════════════════════════
 def per_category_accuracy(predictions: list, ground_truth: list, labels: list):
-    """Shows accuracy broken down by each category."""
     print(f"\n{'='*50}")
     print(f"📊 PER-CATEGORY BREAKDOWN")
     print(f"{'='*50}")
 
     for label in labels:
-        # All emails that actually belong to this category
         actual_indices = [i for i, g in enumerate(ground_truth) if g.lower() == label.lower()]
         if not actual_indices:
             continue
@@ -154,8 +138,13 @@ if __name__ == "__main__":
 
     # ── Get user email ────────────────────────────
     conn = get_db()
-    users = conn.execute("SELECT DISTINCT user_email FROM emails").fetchall()
-    conn.close()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT DISTINCT user_email FROM emails")
+        users = cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
     if not users:
         print("❌ No emails in database! Fetch emails first.")
@@ -171,7 +160,6 @@ if __name__ == "__main__":
         print("❌ No emails found!")
         exit()
 
-    # ── Get AI predictions ────────────────────────
     ai_priorities  = [e["priority"] for e in emails]
     ai_categories  = [e["category"] for e in emails]
 
@@ -181,7 +169,6 @@ if __name__ == "__main__":
     print("Look at the emails above and enter correct labels below.")
     print("Press ENTER to accept AI label, or type correct label.\n")
 
-    # ── Manual labelling ──────────────────────────
     priority_labels  = ["high", "medium", "low"]
     category_labels  = ["Work", "Finance", "Promotions", "Social", "Newsletters", "Other"]
 
@@ -209,13 +196,11 @@ if __name__ == "__main__":
         print(f"[{i+1:2d}] {email['subject'][:55]}")
         print(f"     AI says: {ai_c}")
         user_input = input(f"     Your label (Enter={ai_c}): ").strip()
-        # Capitalize first letter for matching
         if user_input:
             user_input = user_input.capitalize()
         manual_categories.append(user_input if user_input in category_labels else ai_c)
         print()
 
-    # ── Calculate results ─────────────────────────
     p_accuracy = calculate_accuracy(ai_priorities, manual_priorities, "Priority")
     c_accuracy = calculate_accuracy(ai_categories, manual_categories, "Category")
 
@@ -224,7 +209,6 @@ if __name__ == "__main__":
 
     per_category_accuracy(ai_categories, manual_categories, category_labels)
 
-    # ── Overall score ─────────────────────────────
     overall = (p_accuracy + c_accuracy) / 2
     print(f"\n{'='*50}")
     print(f"🎯 OVERALL AI ACCURACY: {overall:.1f}%")

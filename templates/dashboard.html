@@ -8,40 +8,11 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✉️</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <!-- Shared reset, CSS vars, sidebar/nav, buttons and category-tag colors now
+       live in one place instead of being duplicated in every template. -->
+  <link rel="stylesheet" href="/static/css/base.css">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    :root {
-      --bg:      #0a0a0f;
-      --surface: #111118;
-      --border:  rgba(255,255,255,0.07);
-      --accent:  #4f8ef7;
-      --accent2: #a78bfa;
-      --high:    #f87171;
-      --medium:  #fbbf24;
-      --low:     #34d399;
-      --text:    #f0f0f5;
-      --muted:   #6b7280;
-      --sw:      240px;
-    }
-    html,body { height:100%; background:var(--bg); color:var(--text);
-      font-family:'DM Sans',sans-serif; overflow-x:hidden; }
-    body::before { content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-      background-image:
-        linear-gradient(rgba(79,142,247,0.025) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(79,142,247,0.025) 1px,transparent 1px);
-      background-size:40px 40px; }
-
-    .layout { display:flex; min-height:100vh; position:relative; z-index:1; }
-
-    /* ══ SIDEBAR ══ */
-    .sidebar { width:var(--sw); background:var(--surface); border-right:1px solid var(--border);
-      display:flex; flex-direction:column; position:fixed; top:0; left:0; height:100vh; z-index:100; }
-    .sidebar-logo { padding:20px; border-bottom:1px solid var(--border);
-      display:flex; align-items:center; gap:10px; }
-    .logo-icon { width:32px; height:32px; border-radius:8px; flex-shrink:0;
-      background:linear-gradient(135deg,var(--accent),var(--accent2));
-      display:grid; place-items:center; font-size:15px; }
-    .logo-label { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; letter-spacing:.06em; }
+    /* Page-specific styles only — see /static/css/base.css for the rest */
 
     /* Search in sidebar */
     .sidebar-search { padding:12px; border-bottom:1px solid var(--border); }
@@ -54,39 +25,6 @@
       font-family:'DM Sans',sans-serif; font-size:12px; width:100%; }
     .search-input::placeholder { color:var(--muted); }
 
-    .sb-section { padding:12px 12px 4px; }
-    .sb-label { font-size:10px; font-weight:600; letter-spacing:.1em; color:var(--muted);
-      text-transform:uppercase; padding:0 8px; margin-bottom:4px; }
-    .nav-item { display:flex; align-items:center; gap:9px; padding:7px 12px;
-      border-radius:8px; font-size:13px; color:#9ca3af;
-      text-decoration:none; transition:all .15s; margin-bottom:1px; }
-    .nav-item:hover { background:rgba(255,255,255,0.05); color:var(--text); }
-    .nav-item.active { background:rgba(79,142,247,0.12); color:var(--accent); }
-    .nav-icon { font-size:13px; width:18px; text-align:center; }
-    .nav-badge { margin-left:auto; font-size:10px; font-weight:600;
-      padding:2px 6px; border-radius:100px; }
-    .b-high   { background:rgba(248,113,113,0.15); color:var(--high); }
-    .b-medium { background:rgba(251,191,36,0.15);  color:var(--medium); }
-    .b-low    { background:rgba(52,211,153,0.15);  color:var(--low); }
-    .b-count  { background:rgba(255,255,255,0.07); color:var(--muted); }
-    .sb-divider { height:1px; background:var(--border); margin:6px 12px; }
-
-    .sidebar-user { margin-top:auto; padding:12px; border-top:1px solid var(--border);
-      display:flex; align-items:center; gap:10px; }
-    .user-avatar { width:30px; height:30px; border-radius:50%; overflow:hidden; flex-shrink:0;
-      background:linear-gradient(135deg,var(--accent),var(--accent2));
-      display:grid; place-items:center; font-size:12px; font-weight:600; }
-    .user-avatar img { width:100%; height:100%; object-fit:cover; }
-    .user-info { flex:1; min-width:0; }
-    .user-name  { font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .user-email { font-size:10px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .logout-btn { font-size:11px; color:var(--muted); text-decoration:none;
-      padding:4px 8px; border-radius:6px; transition:all .15s; white-space:nowrap; }
-    .logout-btn:hover { background:rgba(248,113,113,0.1); color:var(--high); }
-
-    /* ══ MAIN ══ */
-    .main { margin-left:var(--sw); flex:1; min-width:0; display:flex; flex-direction:column; }
-
     .topbar { padding:16px 28px; border-bottom:1px solid var(--border);
       display:flex; align-items:center; justify-content:space-between;
       background:rgba(10,10,15,0.85); backdrop-filter:blur(12px);
@@ -94,19 +32,6 @@
     .topbar-left h1 { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; }
     .topbar-left p  { font-size:12px; color:var(--muted); margin-top:2px; }
     .topbar-right   { display:flex; gap:8px; align-items:center; flex-shrink:0; }
-
-    .btn-primary { display:inline-flex; align-items:center; gap:7px;
-      background:var(--accent); color:white; font-family:'DM Sans',sans-serif;
-      font-size:12px; font-weight:500; padding:8px 16px; border-radius:9px;
-      border:none; cursor:pointer; transition:all .2s; white-space:nowrap; text-decoration:none; }
-    .btn-primary:hover { background:#3b7de8; transform:translateY(-1px);
-      box-shadow:0 4px 16px rgba(79,142,247,0.3); }
-    .btn-secondary { display:inline-flex; align-items:center; gap:7px;
-      background:rgba(255,255,255,0.05); color:var(--muted);
-      font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500;
-      padding:8px 14px; border-radius:9px; border:1px solid var(--border);
-      cursor:pointer; transition:all .2s; white-space:nowrap; }
-    .btn-secondary:hover { border-color:rgba(255,255,255,0.15); color:var(--text); }
 
     .content { padding:22px 28px; flex:1; }
 
@@ -181,14 +106,7 @@
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:1px; }
     .email-row.unread .e-subject { color:#9ca3af; }
 
-    .cat-tag { font-size:10px; font-weight:500; padding:3px 9px;
-      border-radius:100px; white-space:nowrap; flex-shrink:0; }
-    .cat-Work        { background:rgba(79,142,247,0.12);  color:#93c5fd; }
-    .cat-Finance     { background:rgba(251,191,36,0.12);  color:#fcd34d; }
-    .cat-Promotions  { background:rgba(167,139,250,0.12); color:#c4b5fd; }
-    .cat-Social      { background:rgba(52,211,153,0.12);  color:#6ee7b7; }
-    .cat-Newsletters { background:rgba(251,146,60,0.12);  color:#fdba74; }
-    .cat-Other       { background:rgba(255,255,255,0.06); color:var(--muted); }
+    .cat-tag { flex-shrink:0; } /* base.css sets colors; this just fixes flex behavior in the row */
 
     .pri-badge { font-size:10px; font-weight:700; padding:3px 9px;
       border-radius:100px; text-transform:uppercase;
@@ -476,7 +394,7 @@
             </div>
             <span class="cat-tag cat-{{ email.category }}">{{ email.category }}</span>
             <span class="pri-badge p-{{ email.priority }}">{{ email.priority }}</span>
-            <span class="e-date">{{ email.date[:10] if email.date else '' }}</span>
+            <span class="e-date">{{ email.date.strftime('%Y-%m-%d') if email.date else '' }}</span>
           </a>
           {% endfor %}
 

@@ -1,7 +1,10 @@
 # ============================================================
 #  gmail.py — Fetch Real Emails from Gmail API
+#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff
+#  summary of every change made in this file.
 # ============================================================
 
+import asyncio
 import httpx
 import base64
 import re
@@ -13,58 +16,73 @@ router = APIRouter()
 GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
 
 
-async def fetch_and_store_emails(user_email: str, access_token: str,
-                                  mode: str = "full", latest_date: str = ""):
+async def fetch_and_analyze_emails(user_email: str, access_token: str, skip_existing: bool = True):
     """
-    mode="full"    → fetch top 30 emails (first time)
-    mode="refresh" → fetch latest 30, only SAVE the new ones not already in DB
-    Existing emails in DB are NEVER deleted automatically.
+    Fetches the latest 30 inbox emails from Gmail, parses them, and runs
+    AI analysis on them. Does NOT touch the database — the caller decides
+    what to do with the results.
+
+    skip_existing=True  → won't re-fetch/re-analyze emails whose gmail_id
+                           is already stored for this user (cheap "just get
+                           what's new" refresh). Used by fetch_and_store_emails.
+    skip_existing=False → analyzes every email Gmail returns, even ones
+                           already stored. Used for a true "start fresh"
+                           re-sync (see /refresh-emails in main.py).
+
+    Returns:
+      {"emails": [...], "error": None}          on success
+      {"emails": [], "error": "token_expired"}  if the access token is dead
+      {"emails": [], "error": "<message>"}      on any other failure
     """
-    print(f"\n📬 {'Full fetch' if mode == 'full' else 'Refresh fetch'} for {user_email}")
+    print(f"\n📬 Fetching emails for {user_email} (skip_existing={skip_existing})")
     headers = {"Authorization": f"Bearer {access_token}"}
 
     try:
         # ── Get message list ──────────────────────────────────
-        async with httpx.AsyncClient(timeout=30) as client:
-            list_response = await client.get(
-                f"{GMAIL_BASE}/messages",
-                headers=headers,
-                params={"maxResults": 30, "labelIds": "INBOX"}  # ← 30 emails
-            )
+        list_response = await _get_with_retry(
+            f"{GMAIL_BASE}/messages", headers,
+            params={"maxResults": 30, "labelIds": "INBOX"}
+        )
+
+        if list_response is None:
+            return {"emails": [], "error": "rate_limited"}
 
         if list_response.status_code == 401:
             print("❌ Token expired")
-            return {"count": 0, "new": 0, "error": "token_expired"}
+            return {"emails": [], "error": "token_expired"}
 
         if list_response.status_code != 200:
             print(f"❌ Gmail API error: {list_response.status_code}")
-            return {"count": 0, "new": 0, "error": "api_error"}
+            return {"emails": [], "error": "api_error"}
 
         messages_list = list_response.json().get("messages", [])
         print(f"📋 Gmail returned {len(messages_list)} messages")
 
         if not messages_list:
-            return {"count": 0, "new": 0}
+            return {"emails": [], "error": None}
 
         # ── Get existing gmail IDs from DB (to skip duplicates) ──
+        # Uses a dedicated id-only query instead of get_emails_for_user's
+        # `limit=200` — a user with more than 200 stored emails could
+        # otherwise have old-but-still-inboxed mail silently re-analyzed
+        # on every "check new emails" click.
         existing_ids = set()
-        try:
-            from database import get_emails_for_user
-            existing = get_emails_for_user(user_email, limit=200)
-            existing_ids = {e["gmail_id"] for e in existing}
-        except Exception:
-            pass
+        if skip_existing:
+            try:
+                from database import get_existing_gmail_ids
+                existing_ids = get_existing_gmail_ids(user_email)
+            except Exception as e:
+                print(f"  ⚠️  Could not load existing IDs, will re-check every email: {e}")
 
         # ── Fetch + parse each message ────────────────────────
-        emails_to_save = []
+        emails_to_process = []
         skipped = 0
 
         async with httpx.AsyncClient(timeout=30) as client:
-            for i, msg_ref in enumerate(messages_list):
+            for msg_ref in messages_list:
                 msg_id = msg_ref["id"]
 
-                # Skip if already in database
-                if msg_id in existing_ids:
+                if skip_existing and msg_id in existing_ids:
                     skipped += 1
                     continue
 
@@ -74,12 +92,19 @@ async def fetch_and_store_emails(user_email: str, access_token: str,
                         headers=headers,
                         params={"format": "full"}
                     )
+                    if msg_response.status_code == 429:
+                        print("  ⏳ Gmail rate limit hit mid-batch, backing off 2s")
+                        await asyncio.sleep(2)
+                        msg_response = await client.get(
+                            f"{GMAIL_BASE}/messages/{msg_id}",
+                            headers=headers, params={"format": "full"}
+                        )
                     if msg_response.status_code != 200:
                         continue
                     parsed = parse_gmail_message(msg_response.json(), user_email)
                     if parsed:
-                        emails_to_save.append(parsed)
-                        print(f"  ✅ [{len(emails_to_save)}] New: {parsed['subject'][:50]}")
+                        emails_to_process.append(parsed)
+                        print(f"  ✅ [{len(emails_to_process)}] {parsed['subject'][:50]}")
                 except Exception as e:
                     print(f"  ⚠️  Error: {e}")
                     continue
@@ -87,33 +112,69 @@ async def fetch_and_store_emails(user_email: str, access_token: str,
         if skipped > 0:
             print(f"  ⏭️  Skipped {skipped} emails already in database")
 
-        if not emails_to_save:
-            print("✅ No new emails — inbox is up to date!")
-            return {"count": len(existing_ids), "new": 0}
+        if not emails_to_process:
+            print("✅ Nothing new to analyze")
+            return {"emails": [], "error": None}
 
-        # ── AI Analysis on NEW emails only ────────────────────
-        print(f"\n🤖 AI analyzing {len(emails_to_save)} new emails...")
+        # ── AI Analysis ────────────────────────────────────────
+        print(f"\n🤖 AI analyzing {len(emails_to_process)} emails...")
         try:
             from ai import analyze_emails_batch
-            emails_to_save = await analyze_emails_batch(emails_to_save)
+            emails_to_process = await analyze_emails_batch(emails_to_process)
         except Exception as e:
             print(f"⚠️  AI failed, using defaults: {e}")
-            for email in emails_to_save:
-                if not email.get("priority"):   email["priority"]   = "medium"
-                if not email.get("category"):   email["category"]   = "Other"
-                if not email.get("ai_summary"): email["ai_summary"] = email.get("snippet", "")
+            from ai import assign_defaults
+            emails_to_process = assign_defaults(emails_to_process)
 
-        # ── Save new emails to DB ─────────────────────────────
-        from database import save_emails_bulk
-        save_emails_bulk(emails_to_save)
-
-        print(f"✅ Done! Added {len(emails_to_save)} new emails for {user_email}")
-        return {"count": len(existing_ids) + len(emails_to_save), "new": len(emails_to_save)}
+        return {"emails": emails_to_process, "error": None}
 
     except Exception as e:
         print(f"❌ Error: {e}")
         import traceback; traceback.print_exc()
-        return {"count": 0, "new": 0, "error": str(e)}
+        return {"emails": [], "error": str(e)}
+
+
+async def _get_with_retry(url: str, headers: dict, params: dict, retries: int = 1):
+    """Small helper: retry once after a short backoff on HTTP 429."""
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.get(url, headers=headers, params=params)
+        attempt = 0
+        while response.status_code == 429 and attempt < retries:
+            print("  ⏳ Gmail rate limit hit, backing off 2s")
+            await asyncio.sleep(2)
+            response = await client.get(url, headers=headers, params=params)
+            attempt += 1
+        return response
+
+
+async def fetch_and_store_emails(user_email: str, access_token: str):
+    """
+    The normal "check my inbox" flow used by POST /fetch-emails.
+    Fetches only NEW emails (ones not already saved), analyzes them,
+    and saves them. Safe to call repeatedly — never creates duplicates,
+    never deletes anything you already have.
+    """
+    result = await fetch_and_analyze_emails(user_email, access_token, skip_existing=True)
+
+    if result["error"]:
+        return {"count": 0, "new": 0, "error": result["error"]}
+
+    new_emails = result["emails"]
+
+    if new_emails:
+        from database import save_emails_bulk
+        save_emails_bulk(new_emails)
+        print(f"✅ Done! Added {len(new_emails)} new emails for {user_email}")
+    else:
+        print("✅ No new emails — inbox is up to date!")
+
+    try:
+        from database import get_stats_for_user
+        total = get_stats_for_user(user_email).get("total", 0)
+    except Exception:
+        total = len(new_emails)
+
+    return {"count": total, "new": len(new_emails)}
 
 
 def parse_gmail_message(msg_data: dict, user_email: str) -> dict:
@@ -123,6 +184,17 @@ def parse_gmail_message(msg_data: dict, user_email: str) -> dict:
         payload    = msg_data.get("payload", {})
         headers    = payload.get("headers", [])
         header_map = {h["name"].lower(): h["value"] for h in headers}
+
+        # ── Real read/unread status from Gmail itself ──────────
+        # Gmail tells us this directly: every message resource has a
+        # top-level "labelIds" array. If "UNREAD" is in that list, the
+        # message is unread in the user's real inbox; if it's absent,
+        # the user has already read it there. Previously this was
+        # hardcoded to False for every fetched email regardless of its
+        # actual state in Gmail — that's what made the dashboard show
+        # "30 unread" even when most of them were already read.
+        label_ids = msg_data.get("labelIds", [])
+        is_read   = "UNREAD" not in label_ids
 
         subject      = decode_mime_header(header_map.get("subject", "(No Subject)"))
         sender_raw   = header_map.get("from", "Unknown Sender")
@@ -141,7 +213,7 @@ def parse_gmail_message(msg_data: dict, user_email: str) -> dict:
             "snippet":      snippet[:300],
             "body":         body[:5000],
             "date":         date,
-            "is_read":      0,
+            "is_read":      is_read,   # matches the `emails.is_read BOOLEAN` column
             "priority":     "medium",
             "category":     "Other",
             "ai_summary":   "",

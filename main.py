@@ -1,4 +1,5 @@
 #  main.py — Entry Point
+#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff summary.
 
 import os
 from fastapi import FastAPI, Request, HTTPException
@@ -6,37 +7,54 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
 
 load_dotenv()
 
 try:
-    from database import init_db
-except ImportError as e:
+    from database import (
+        init_db, get_emails_for_user, get_stats_for_user, get_email_by_id,
+        mark_email_as_read, get_filtered_emails, search_emails as db_search,
+        get_user_by_email, replace_all_emails_for_user,
+    )
+except Exception as e:
     print(f"⚠️  Could not import database.py — real reason: {e}")
     init_db = None
 
 try:
-    from auth import router as auth_router
-except ImportError as e:
+    from auth import router as auth_router, refresh_access_token
+except Exception as e:
     print(f"⚠️  Could not import auth.py — real reason: {e}")
     auth_router = None
 
 try:
-    from gmail import router as gmail_router
-except ImportError as e:
+    from gmail import router as gmail_router, fetch_and_store_emails, fetch_and_analyze_emails
+except Exception as e:
     print(f"⚠️  Could not import gmail.py — real reason: {e}")
     gmail_router = None
 
 # ══════════════════════════════════════════════════
 app = FastAPI(title="NexInbox", version="1.0.0")
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change-this-in-production-please")
+IS_PRODUCTION = os.getenv("ENVIRONMENT", "development").lower() == "production"
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "SECRET_KEY must be set in production — refusing to start with a "
+            "public, guessable key that lets anyone forge a login session."
+        )
+    print("⚠️  WARNING: SECRET_KEY is not set — falling back to an insecure "
+          "default. This is only allowed because ENVIRONMENT is not 'production'.")
+    SECRET_KEY = "change-this-in-production-please"
+
 app.add_middleware(
     SessionMiddleware,
     secret_key=SECRET_KEY,
     max_age=86400,
-    https_only=False,
+    https_only=IS_PRODUCTION,
     same_site="lax"
 )
 
@@ -53,6 +71,27 @@ def get_current_user(request: Request):
     return request.session.get("user_email")
 
 
+async def get_access_token_for(user_email: str):
+    """
+    The access token lives only in Postgres (see auth.py). This is the
+    single place every route goes through to get it.
+
+    Now async + wrapped in try/except: psycopg2 is a blocking driver, so
+    the DB call is pushed onto a background thread (run_in_threadpool)
+    instead of freezing every other user's request while it runs. The
+    try/except means a DB hiccup here produces a clean "please log in
+    again" redirect instead of an unhandled 500.
+    """
+    if not user_email:
+        return None
+    try:
+        user_row = await run_in_threadpool(get_user_by_email, user_email)
+        return user_row.get("access_token") if user_row else None
+    except Exception as e:
+        print(f"⚠️  Could not fetch access token for {user_email}: {e}")
+        return None
+
+
 #  ROUTE 1: Home
 
 @app.get("/", response_class=HTMLResponse)
@@ -61,7 +100,6 @@ async def home(request: Request):
         return RedirectResponse(url="/dashboard", status_code=302)
     return templates.TemplateResponse(request, "index.html",
         {"title": "NexInbox"})
-
 
 
 #  ROUTE 2: Dashboard
@@ -78,9 +116,8 @@ async def dashboard(request: Request):
     stats  = _empty_stats()
 
     try:
-        from database import get_emails_for_user, get_stats_for_user
-        emails = get_emails_for_user(user_email)
-        stats  = get_stats_for_user(user_email)
+        emails = await run_in_threadpool(get_emails_for_user, user_email)
+        stats  = await run_in_threadpool(get_stats_for_user, user_email)
     except Exception as e:
         print(f"DB error: {e}")
 
@@ -105,10 +142,10 @@ async def email_detail(request: Request, email_id: str):
 
     email_data = None
     try:
-        from database import get_email_by_id, mark_email_as_read
-        email_data = get_email_by_id(email_id, user_email)
-        if email_data:
-            mark_email_as_read(email_id, user_email)
+        email_data = await run_in_threadpool(get_email_by_id, email_id, user_email)
+        if email_data and not email_data.get("is_read"):
+            await run_in_threadpool(mark_email_as_read, email_id, user_email)
+            email_data["is_read"] = True
     except Exception as e:
         print(f"DB error: {e}")
 
@@ -123,7 +160,7 @@ async def email_detail(request: Request, email_id: str):
     })
 
 
-#  ROUTE 4: Fetch Emails (SMART)
+#  ROUTE 4: Fetch Emails (SMART — only pulls what's new)
 
 @app.post("/fetch-emails")
 async def fetch_emails(request: Request):
@@ -131,39 +168,26 @@ async def fetch_emails(request: Request):
     if not user_email:
         return RedirectResponse(url="/", status_code=302)
 
-    access_token = request.session.get("access_token")
+    access_token = await get_access_token_for(user_email)
     if not access_token:
-        # No token in session → force re-login
         request.session.clear()
         return RedirectResponse(url="/auth/login", status_code=302)
 
     try:
-        from database import get_emails_for_user
-        from gmail import fetch_and_store_emails
+        result = await fetch_and_store_emails(user_email=user_email, access_token=access_token)
 
-        existing_emails = get_emails_for_user(user_email)
-        existing_count  = len(existing_emails)
-
-        if existing_count == 0:
-            print(f"📬 First fetch for {user_email}")
-            result = await fetch_and_store_emails(
-                user_email=user_email,
-                access_token=access_token,
-                mode="full"
-            )
-        else:
-            print(f"🔄 Refresh fetch for {user_email}")
-            result = await fetch_and_store_emails(
-                user_email=user_email,
-                access_token=access_token,
-                mode="refresh"
-            )
-
-        # ── If token expired → clear session and re-login ────
         if result.get("error") == "token_expired":
-            print("🔑 Token expired — redirecting to login")
-            request.session.pop("access_token", None)
-            return RedirectResponse(url="/auth/login", status_code=302)
+            print("🔑 Access token expired — attempting silent refresh")
+            user_row = await run_in_threadpool(get_user_by_email, user_email)
+            refresh_token = user_row.get("refresh_token") if user_row else None
+            new_token = await refresh_access_token(refresh_token, user_email) if refresh_token else None
+
+            if new_token:
+                result = await fetch_and_store_emails(user_email=user_email, access_token=new_token)
+
+            if not new_token or result.get("error") == "token_expired":
+                print("🔑 Refresh failed — user must log in again")
+                return RedirectResponse(url="/auth/login", status_code=302)
 
         new_count = result.get("new", 0)
         print(f"✅ {new_count} new emails added" if new_count > 0 else "✅ Inbox up to date")
@@ -175,7 +199,7 @@ async def fetch_emails(request: Request):
     return RedirectResponse(url="/dashboard", status_code=302)
 
 
-#  ROUTE 5: Force Refresh (wipe + re-fetch)
+#  ROUTE 5: Force Refresh (fetch fresh copy, THEN atomically replace)
 
 @app.post("/refresh-emails")
 async def refresh_emails(request: Request):
@@ -183,26 +207,36 @@ async def refresh_emails(request: Request):
     if not user_email:
         return RedirectResponse(url="/", status_code=302)
 
-    access_token = request.session.get("access_token")
+    access_token = await get_access_token_for(user_email)
     if not access_token:
         request.session.clear()
         return RedirectResponse(url="/auth/login", status_code=302)
 
     try:
-        from database import delete_emails_for_user
-        from gmail import fetch_and_store_emails
         print(f"🔄 Force refresh for {user_email}")
-        delete_emails_for_user(user_email)
-        result = await fetch_and_store_emails(
-            user_email=user_email,
-            access_token=access_token,
-            mode="full"
-        )
-        if result.get("error") == "token_expired":
-            request.session.pop("access_token", None)
-            return RedirectResponse(url="/auth/login", status_code=302)
+        result = await fetch_and_analyze_emails(user_email, access_token, skip_existing=False)
+
+        if result["error"] == "token_expired":
+            print("🔑 Access token expired — attempting silent refresh")
+            user_row = await run_in_threadpool(get_user_by_email, user_email)
+            refresh_token = user_row.get("refresh_token") if user_row else None
+            new_token = await refresh_access_token(refresh_token, user_email) if refresh_token else None
+
+            if new_token:
+                result = await fetch_and_analyze_emails(user_email, new_token, skip_existing=False)
+
+            if not new_token or result["error"] == "token_expired":
+                return RedirectResponse(url="/auth/login", status_code=302)
+
+        if result["error"]:
+            print(f"❌ Refresh failed, keeping existing emails: {result['error']}")
+            return RedirectResponse(url="/dashboard?error=refresh_failed", status_code=302)
+
+        await run_in_threadpool(replace_all_emails_for_user, user_email, result["emails"])
+
     except Exception as e:
         print(f"❌ Refresh error: {e}")
+        import traceback; traceback.print_exc()
 
     return RedirectResponse(url="/dashboard", status_code=302)
 
@@ -224,14 +258,8 @@ async def filter_emails(
     stats  = _empty_stats()
 
     try:
-        from database import get_filtered_emails, get_stats_for_user
-        emails = get_filtered_emails(
-            user_email=user_email,
-            priority=priority,
-            category=category,
-            read_status=read
-        )
-        stats = get_stats_for_user(user_email)
+        emails = await run_in_threadpool(get_filtered_emails, user_email, priority, category, read)
+        stats  = await run_in_threadpool(get_stats_for_user, user_email)
     except Exception as e:
         print(f"DB error: {e}")
 
@@ -246,7 +274,6 @@ async def filter_emails(
     })
 
 
-
 #  ROUTE 7: Logout
 
 @app.get("/logout")
@@ -255,12 +282,40 @@ async def logout(request: Request):
     return RedirectResponse(url="/", status_code=302)
 
 
-
 #  ROUTE 8: Health Check
 
 @app.get("/health")
 async def health_check():
     return {"status": "ok", "app": "Email Intelligence System", "version": "1.0.0"}
+
+
+#  ROUTE 9: Search
+
+@app.get("/search", response_class=HTMLResponse)
+async def search_emails(request: Request, q: str = ""):
+    user_email = get_current_user(request)
+    if not user_email:
+        return RedirectResponse(url="/", status_code=302)
+
+    emails = []
+    stats  = _empty_stats()
+
+    try:
+        emails = await run_in_threadpool(db_search, user_email, q)
+        stats  = await run_in_threadpool(get_stats_for_user, user_email)
+    except Exception as e:
+        print(f"Search error: {e}")
+
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "user_email":    user_email,
+        "user_name":     request.session.get("user_name", "User"),
+        "user_picture":  request.session.get("user_picture", ""),
+        "emails":        emails,
+        "stats":         stats,
+        "active_filter": "all",
+        "search_query":  q,
+        "title":         f"Search: {q} — Email Intelligence",
+    })
 
 
 #  HELPER
@@ -290,33 +345,3 @@ async def startup_event():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
-
-
-#  ROUTE: Search  GET /search?q=keyword
-
-@app.get("/search", response_class=HTMLResponse)
-async def search_emails(request: Request, q: str = ""):
-    user_email = get_current_user(request)
-    if not user_email:
-        return RedirectResponse(url="/", status_code=302)
-
-    emails = []
-    stats  = _empty_stats()
-
-    try:
-        from database import search_emails as db_search, get_stats_for_user
-        emails = db_search(user_email=user_email, query=q)
-        stats  = get_stats_for_user(user_email)
-    except Exception as e:
-        print(f"Search error: {e}")
-
-    return templates.TemplateResponse(request, "dashboard.html", {
-        "user_email":    user_email,
-        "user_name":     request.session.get("user_name", "User"),
-        "user_picture":  request.session.get("user_picture", ""),
-        "emails":        emails,
-        "stats":         stats,
-        "active_filter": "all",
-        "search_query":  q,
-        "title":         f"Search: {q} — Email Intelligence",
-    })

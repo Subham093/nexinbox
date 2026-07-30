@@ -1,5 +1,7 @@
 # ============================================================
-#  ai.py — The AI Brain (using Groq + Llama 3)
+#  ai.py — The AI Brain (using Groq)
+#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff
+#  summary of every change made in this file.
 # ============================================================
 
 import os
@@ -12,7 +14,7 @@ load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL   = "openai/gpt-oss-120b"   # Updated model (llama-3.3 deprecated Aug 16, 2026)   # Updated model
+GROQ_MODEL   = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
 # ══════════════════════════════════════════════════
@@ -46,7 +48,7 @@ async def analyze_emails_batch(emails: list) -> list:
             print(f"  ⚠️  Batch {i//batch_size + 1} failed: {e} — using defaults")
             results.extend(assign_defaults(batch))
 
-        # Wait 6 seconds between batches to respect Groq rate limit
+        # Wait between batches to respect Groq rate limit
         if i + batch_size < len(emails):
             print(f"  ⏳ Waiting 6 seconds before next batch...")
             await asyncio.sleep(6)
@@ -61,6 +63,16 @@ async def analyze_emails_batch(emails: list) -> list:
 async def analyze_batch(emails: list) -> list:
     """
     Sends a batch of emails to Groq and parses the JSON response.
+
+    NOTE ON PROMPT INJECTION: email subject/sender/snippet text is
+    attacker-controlled (anyone who can email the user can influence
+    this prompt). It's passed to the model as JSON *data*, not as
+    instructions, and the only things this function does with the
+    model's output are (a) validate priority/category against a fixed
+    allow-list and (b) store a summary string — so a malicious email
+    can at worst get itself mis-classified, not execute anything or
+    escape into the rest of the app. Don't loosen the allow-list
+    validation below without re-considering this.
     """
     email_list = []
     for idx, email in enumerate(emails):
@@ -125,23 +137,17 @@ Respond with ONLY this JSON format, no other text:
   {{"index": 1, "priority": "low", "category": "Promotions", "summary": "One sentence summary here."}}
 ]"""
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        response = await client.post(
-            GROQ_API_URL,
-            headers={
-                "Authorization": f"Bearer {GROQ_API_KEY}",
-                "Content-Type":  "application/json",
-            },
-            json={
-                "model":       GROQ_MODEL,
-                "messages":    [{"role": "user", "content": prompt}],
-                "temperature": 0.1,
-                "max_tokens":  2000,
-            }
-        )
+    response = await _post_with_retry({
+        "model":       GROQ_MODEL,
+        "messages":    [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+        "max_tokens":  2000,
+    })
 
-    if response.status_code != 200:
-        print(f"  ❌ Groq API error: {response.status_code} — {response.text[:200]}")
+    if response is None or response.status_code != 200:
+        status = response.status_code if response is not None else "no response"
+        text   = response.text[:200] if response is not None else ""
+        print(f"  ❌ Groq API error: {status} — {text}")
         return assign_defaults(emails)
 
     response_data = response.json()
@@ -178,49 +184,33 @@ Respond with ONLY this JSON format, no other text:
     return emails
 
 
-# ══════════════════════════════════════════════════
-#  SINGLE EMAIL: Analyze just one email (for detail page)
-# ══════════════════════════════════════════════════
-async def analyze_single_email(subject: str, sender: str, body: str) -> dict:
-    """Analyzes a single email in detail. Returns {priority, category, summary}"""
-    if not GROQ_API_KEY:
-        return {"priority": "medium", "category": "Other",
-                "summary": "AI analysis unavailable."}
+async def _post_with_retry(payload: dict, retries: int = 2):
+    """POSTs to Groq, retrying with backoff on 429 (rate limit) and
+    5xx (transient server error) responses instead of immediately
+    falling back to keyword defaults for the whole batch."""
+    delay = 3
+    async with httpx.AsyncClient(timeout=60) as client:
+        for attempt in range(retries + 1):
+            try:
+                response = await client.post(
+                    GROQ_API_URL,
+                    headers={
+                        "Authorization": f"Bearer {GROQ_API_KEY}",
+                        "Content-Type":  "application/json",
+                    },
+                    json=payload,
+                )
+            except httpx.HTTPError as e:
+                print(f"  ⚠️  Groq request failed: {e}")
+                return None
 
-    prompt = f"""Analyze this email and return ONLY JSON.
+            if response.status_code not in (429, 500, 502, 503) or attempt == retries:
+                return response
 
-Subject: {subject[:200]}
-From: {sender[:100]}
-Body: {body[:1000]}
-
-Return ONLY this JSON:
-{{"priority": "high/medium/low", "category": "Work/Finance/Promotions/Social/Newsletters/Other", "summary": "2-3 sentence summary of the email content and any action needed."}}"""
-
-    try:
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                GROQ_API_URL,
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type":  "application/json",
-                },
-                json={
-                    "model":       GROQ_MODEL,
-                    "messages":    [{"role": "user", "content": prompt}],
-                    "temperature": 0.1,
-                    "max_tokens":  200,
-                }
-            )
-
-        ai_text = response.json()["choices"][0]["message"]["content"].strip()
-        ai_text = ai_text.replace("```json", "").replace("```", "").strip()
-        return json.loads(ai_text)
-
-    except Exception as e:
-        print(f"⚠️  Single email analysis failed: {e}")
-        return {"priority": "medium", "category": "Other",
-                "summary": "Could not generate summary."}
-
+            print(f"  ⏳ Groq returned {response.status_code}, retrying in {delay}s...")
+            await asyncio.sleep(delay)
+            delay *= 2
+    return None
 
 # ══════════════════════════════════════════════════
 #  FALLBACK: Assign default values without AI

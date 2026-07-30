@@ -1,101 +1,132 @@
 # ============================================================
-#  database.py — Your Storage Room (Now backed by PostgreSQL!)
-# ============================================================
-# We migrated from SQLite (a file that lived INSIDE the app,
-# and got wiped every time Render restarted) to PostgreSQL
-# (a separate, permanent database hosted on Supabase).
-#
-# This file still does the same 4 things as before:
-#   1. Creates the database + tables (init_db)
-#   2. User functions   (create/get users)
-#   3. Email functions  (save/get/filter emails)
-#   4. Stats function   (count totals for dashboard)
+#  database.py — Your Storage Room (PostgreSQL / Supabase)
+#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff
+#  summary of every change made in this file.
 # ============================================================
 
 import os
 import psycopg2
 import psycopg2.extras
+from psycopg2.pool import SimpleConnectionPool
 from datetime import datetime
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# ── Where the database actually lives now ──────────────────
-# Instead of a local file, this is a URL pointing to your
-# Supabase Postgres database (kept secret in your .env file)
 DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is not set. Add it to your .env / Render environment."
+    )
+
+_pool = None
 
 
-# ══════════════════════════════════════════════════
-#  HELPER: Get a database connection
-# ══════════════════════════════════════════════════
+def _get_pool():
+    global _pool
+    if _pool is None:
+        _pool = SimpleConnectionPool(
+            minconn=1,
+            maxconn=int(os.getenv("DB_POOL_MAX", "10")),
+            dsn=DATABASE_URL,
+            cursor_factory=psycopg2.extras.RealDictCursor,
+        )
+    return _pool
+
+
+class _PooledConnection:
+    def __init__(self, raw_conn):
+        self._raw = raw_conn
+        for attr in ("cursor", "commit", "rollback"):
+            setattr(self, attr, getattr(raw_conn, attr))
+
+    def close(self):
+        # Reset the connection before it goes back to the pool. If a query
+        # failed somewhere and nobody explicitly called rollback(), the
+        # connection could go back to the pool "poisoned" — still sitting
+        # inside a failed transaction. rollback() is a no-op (harmless) if
+        # there was nothing to undo.
+        try:
+            self._raw.rollback()
+            _get_pool().putconn(self._raw)
+        except Exception:
+            # rollback() itself failed — the connection is actually dead
+            # (network blip, Supabase restart, etc.), not just mid-task.
+            # Tell the pool to discard it instead of handing a broken
+            # connection to the next unrelated request. The pool will
+            # simply open a fresh one next time it's needed.
+            try:
+                _get_pool().putconn(self._raw, close=True)
+            except Exception:
+                pass
+
+
 def get_db():
-    """
-    Opens a connection to the PostgreSQL database.
-
-    cursor_factory=RealDictCursor means:
-      Instead of getting back plain tuples like ("abc@gmail.com", "John"),
-      you get dict-like objects: row["email"], row["name"]  ← same as before!
-    """
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
-    return conn
+    return _PooledConnection(_get_pool().getconn())
 
 
 # ══════════════════════════════════════════════════
-#  1. INIT: Create all tables if they don't exist
+#  1. INIT: Create all tables + indexes if they don't exist
 # ══════════════════════════════════════════════════
 def init_db():
-    """
-    Called once on server startup (from main.py).
-    Creates 2 tables:
-      - users  → stores Google login info
-      - emails → stores fetched + AI-analyzed emails
-
-    "IF NOT EXISTS" = safe to call multiple times, won't wipe data!
-    """
     conn = get_db()
     cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id            SERIAL PRIMARY KEY,
+                email         TEXT    UNIQUE NOT NULL,
+                name          TEXT,
+                picture       TEXT,
+                access_token  TEXT,
+                refresh_token TEXT,
+                created_at    TIMESTAMP DEFAULT NOW(),
+                last_login    TIMESTAMP DEFAULT NOW()
+            )
+        """)
 
-    # ── TABLE 1: users ──────────────────────────────────────
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id            SERIAL PRIMARY KEY,
-            email         TEXT    UNIQUE NOT NULL,
-            name          TEXT,
-            picture       TEXT,
-            access_token  TEXT,
-            refresh_token TEXT,
-            created_at    TIMESTAMP DEFAULT NOW(),
-            last_login    TIMESTAMP DEFAULT NOW()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS emails (
+                id            SERIAL PRIMARY KEY,
+                gmail_id      TEXT    NOT NULL,
+                user_email    TEXT    NOT NULL,
+                subject       TEXT    DEFAULT '(No Subject)',
+                sender        TEXT,
+                sender_email  TEXT,
+                snippet       TEXT,
+                body          TEXT,
+                date          TIMESTAMP,
+                is_read       BOOLEAN DEFAULT FALSE,
+                priority      TEXT    DEFAULT 'medium',
+                category      TEXT    DEFAULT 'Other',
+                ai_summary    TEXT,
+                fetched_at    TIMESTAMP DEFAULT NOW(),
+
+                UNIQUE(gmail_id, user_email)
+            )
+        """)
+
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_emails_user_email ON emails(user_email)"
         )
-    """)
-
-    # ── TABLE 2: emails ─────────────────────────────────────
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS emails (
-            id            SERIAL PRIMARY KEY,
-            gmail_id      TEXT    NOT NULL,
-            user_email    TEXT    NOT NULL,
-            subject       TEXT    DEFAULT '(No Subject)',
-            sender        TEXT,
-            sender_email  TEXT,
-            snippet       TEXT,
-            body          TEXT,
-            date          TEXT,
-            is_read       INTEGER DEFAULT 0,
-            priority      TEXT    DEFAULT 'medium',
-            category      TEXT    DEFAULT 'Other',
-            ai_summary    TEXT,
-            fetched_at    TIMESTAMP DEFAULT NOW(),
-
-            UNIQUE(gmail_id, user_email)
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_emails_user_date "
+            "ON emails(user_email, date DESC)"
         )
-    """)
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_emails_user_priority "
+            "ON emails(user_email, priority)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_emails_user_category "
+            "ON emails(user_email, category)"
+        )
 
-    conn.commit()
-    cursor.close()
-    conn.close()
-    print(f"✅ Database ready (PostgreSQL / Supabase)")
+        conn.commit()
+        print(f"✅ Database ready (PostgreSQL / Supabase)")
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # ══════════════════════════════════════════════════
@@ -104,11 +135,6 @@ def init_db():
 
 def create_or_update_user(email: str, name: str, picture: str,
                            access_token: str, refresh_token: str = None):
-    """
-    Called after Google login succeeds.
-    - If user exists → updates their tokens + last_login
-    - If new user    → creates a fresh row
-    """
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -127,21 +153,20 @@ def create_or_update_user(email: str, name: str, picture: str,
     except Exception as e:
         print(f"❌ Error saving user: {e}")
         conn.rollback()
+        raise
     finally:
         cursor.close()
         conn.close()
 
 
 def get_user_by_email(email: str):
-    """
-    Looks up a user by their email address.
-    Returns a dict-like Row object, or None if not found.
-    """
     conn = get_db()
     cursor = conn.cursor()
     try:
         cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
         row = cursor.fetchone()
+        conn.commit()  # closes out the read transaction cleanly instead of
+                        # leaving it open when the connection returns to the pool
         return dict(row) if row else None
     finally:
         cursor.close()
@@ -149,7 +174,6 @@ def get_user_by_email(email: str):
 
 
 def update_access_token(email: str, access_token: str):
-    """Updates just the access token (used when token refreshes)."""
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -168,11 +192,6 @@ def update_access_token(email: str, access_token: str):
 # ══════════════════════════════════════════════════
 
 def save_email(email_data: dict):
-    """
-    Saves one email to the database.
-    "ON CONFLICT DO NOTHING" = if this email already exists, skip it silently.
-    This prevents duplicates when you fetch emails multiple times.
-    """
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -195,10 +214,6 @@ def save_email(email_data: dict):
 
 
 def save_emails_bulk(emails_list: list):
-    """
-    Saves multiple emails at once — much faster than calling save_email() in a loop!
-    Used after fetching all new emails from Gmail + running AI on them.
-    """
     if not emails_list:
         return
 
@@ -230,11 +245,43 @@ def save_emails_bulk(emails_list: list):
         conn.close()
 
 
+def replace_all_emails_for_user(user_email: str, emails_list: list):
+    """
+    Atomically replaces ALL of a user's emails with a fresh batch.
+    Runs as ONE transaction — this is exactly why we do NOT set
+    autocommit=True globally on the pool (see note in _get_pool):
+    doing so would make the DELETE below commit instantly, and the
+    rollback on failure would have nothing left to undo.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM emails WHERE user_email = %s", (user_email,))
+
+        for email_data in emails_list:
+            cursor.execute("""
+                INSERT INTO emails
+                    (gmail_id, user_email, subject, sender, sender_email,
+                     snippet, body, date, priority, category, ai_summary)
+                VALUES
+                    (%(gmail_id)s, %(user_email)s, %(subject)s, %(sender)s, %(sender_email)s,
+                     %(snippet)s, %(body)s, %(date)s, %(priority)s, %(category)s, %(ai_summary)s)
+                ON CONFLICT (gmail_id, user_email) DO NOTHING
+            """, email_data)
+
+        conn.commit()
+        print(f"🔄 Replaced emails for {user_email}: {len(emails_list)} saved")
+        return True
+    except Exception as e:
+        print(f"❌ Replace failed, rolling back — old data kept: {e}")
+        conn.rollback()
+        return False
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def get_emails_for_user(user_email: str, limit: int = 50):
-    """
-    Gets all emails for a user, newest first.
-    Returns a list of dicts (easy to use in templates).
-    """
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -245,17 +292,29 @@ def get_emails_for_user(user_email: str, limit: int = 50):
             LIMIT %s
         """, (user_email, limit))
         rows = cursor.fetchall()
+        conn.commit()
         return [dict(row) for row in rows]
     finally:
         cursor.close()
         conn.close()
 
 
+def get_existing_gmail_ids(user_email: str) -> set:
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "SELECT gmail_id FROM emails WHERE user_email = %s", (user_email,)
+        )
+        rows = cursor.fetchall()
+        conn.commit()
+        return {row["gmail_id"] for row in rows}
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def get_email_by_id(gmail_id: str, user_email: str):
-    """
-    Gets one specific email by its Gmail ID.
-    Also checks user_email so users can't see each other's emails!
-    """
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -264,65 +323,57 @@ def get_email_by_id(gmail_id: str, user_email: str):
             WHERE gmail_id = %s AND user_email = %s
         """, (gmail_id, user_email))
         row = cursor.fetchone()
+        conn.commit()
         return dict(row) if row else None
     finally:
         cursor.close()
         conn.close()
 
 
-def mark_email_as_read(gmail_id: str, user_email: str = None):
-    """
-    Sets is_read = 1 for an email (called when user opens it).
-    Now also scoped by user_email when provided, for safety.
-    """
+def mark_email_as_read(gmail_id: str, user_email: str):
     conn = get_db()
     cursor = conn.cursor()
     try:
-        if user_email:
-            cursor.execute(
-                "UPDATE emails SET is_read = 1 WHERE gmail_id = %s AND user_email = %s",
-                (gmail_id, user_email)
-            )
-        else:
-            cursor.execute(
-                "UPDATE emails SET is_read = 1 WHERE gmail_id = %s",
-                (gmail_id,)
-            )
+        cursor.execute(
+            "UPDATE emails SET is_read = TRUE WHERE gmail_id = %s AND user_email = %s",
+            (gmail_id, user_email)
+        )
         conn.commit()
     finally:
         cursor.close()
         conn.close()
 
 
+_ALLOWED_PRIORITIES = {"high", "medium", "low"}
+_ALLOWED_CATEGORIES = {"Work", "Finance", "Promotions", "Social", "Newsletters", "Other"}
+
+
 def get_filtered_emails(user_email: str, priority: str = None,
                          category: str = None, read_status: str = None):
-    """
-    Gets emails with optional filters.
-    Any filter left as None is ignored (shows everything).
-    """
     conn = get_db()
     cursor = conn.cursor()
     try:
         query  = "SELECT * FROM emails WHERE user_email = %s"
         params = [user_email]
 
-        if priority:
+        if priority and priority.lower() in _ALLOWED_PRIORITIES:
             query += " AND priority = %s"
             params.append(priority.lower())
 
-        if category:
+        if category and category in _ALLOWED_CATEGORIES:
             query += " AND category = %s"
             params.append(category)
 
         if read_status == "unread":
-            query += " AND is_read = 0"
+            query += " AND is_read = FALSE"
         elif read_status == "read":
-            query += " AND is_read = 1"
+            query += " AND is_read = TRUE"
 
         query += " ORDER BY date DESC LIMIT 50"
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
+        conn.commit()
         return [dict(row) for row in rows]
     finally:
         cursor.close()
@@ -330,9 +381,6 @@ def get_filtered_emails(user_email: str, priority: str = None,
 
 
 def delete_emails_for_user(user_email: str):
-    """
-    Deletes all emails for a user (used when they want to re-fetch fresh emails).
-    """
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -349,20 +397,17 @@ def delete_emails_for_user(user_email: str):
 # ══════════════════════════════════════════════════
 
 def get_stats_for_user(user_email: str):
-    """
-    Returns counts for the dashboard stat cards.
-    """
     conn = get_db()
     cursor = conn.cursor()
     try:
         cursor.execute("""
             SELECT
-                COUNT(*)                                         AS total,
-                SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END)   AS unread,
-                SUM(CASE WHEN is_read = 1 THEN 1 ELSE 0 END)   AS read,
-                SUM(CASE WHEN priority = 'high'   THEN 1 ELSE 0 END) AS high,
-                SUM(CASE WHEN priority = 'medium' THEN 1 ELSE 0 END) AS medium,
-                SUM(CASE WHEN priority = 'low'    THEN 1 ELSE 0 END) AS low,
+                COUNT(*)                                              AS total,
+                SUM(CASE WHEN is_read = FALSE THEN 1 ELSE 0 END)      AS unread,
+                SUM(CASE WHEN is_read = TRUE  THEN 1 ELSE 0 END)      AS read,
+                SUM(CASE WHEN priority = 'high'   THEN 1 ELSE 0 END)  AS high,
+                SUM(CASE WHEN priority = 'medium' THEN 1 ELSE 0 END)  AS medium,
+                SUM(CASE WHEN priority = 'low'    THEN 1 ELSE 0 END)  AS low,
                 SUM(CASE WHEN category = 'Work'        THEN 1 ELSE 0 END) AS work,
                 SUM(CASE WHEN category = 'Finance'     THEN 1 ELSE 0 END) AS finance,
                 SUM(CASE WHEN category = 'Promotions'  THEN 1 ELSE 0 END) AS promotions,
@@ -373,25 +418,15 @@ def get_stats_for_user(user_email: str):
             WHERE user_email = %s
         """, (user_email,))
         row = cursor.fetchone()
+        conn.commit()
 
-        if row and row["total"]:
-            return {
-                "total":       row["total"]       or 0,
-                "unread":      row["unread"]      or 0,
-                "read":        row["read"]        or 0,
-                "high":        row["high"]        or 0,
-                "medium":      row["medium"]      or 0,
-                "low":         row["low"]         or 0,
-                "work":        row["work"]        or 0,
-                "finance":     row["finance"]     or 0,
-                "promotions":  row["promotions"]  or 0,
-                "social":      row["social"]      or 0,
-                "newsletters": row["newsletters"] or 0,
-                "other":       row["other"]       or 0,
-            }
-        # Return zeroes if no emails yet
-        return {"total":0,"unread":0,"read":0,"high":0,"medium":0,"low":0,
-                "work":0,"finance":0,"promotions":0,"social":0,"newsletters":0,"other":0}
+        empty = {"total":0,"unread":0,"read":0,"high":0,"medium":0,"low":0,
+                 "work":0,"finance":0,"promotions":0,"social":0,"newsletters":0,"other":0}
+
+        if not row or not row["total"]:
+            return empty
+
+        return {k: (row[k] or 0) for k in empty}
     finally:
         cursor.close()
         conn.close()
@@ -401,10 +436,6 @@ def get_stats_for_user(user_email: str):
 #  SEARCH FUNCTION
 # ══════════════════════════════════════════════════
 def search_emails(user_email: str, query: str):
-    """
-    Search emails by subject, sender, or body content.
-    Case-insensitive search using SQL LIKE.
-    """
     if not query or not query.strip():
         return get_emails_for_user(user_email)
 
@@ -426,6 +457,7 @@ def search_emails(user_email: str, query: str):
             LIMIT 50
         """, (user_email, q, q, q, q, q))
         rows = cursor.fetchall()
+        conn.commit()
         return [dict(row) for row in rows]
     finally:
         cursor.close()
@@ -435,14 +467,10 @@ def search_emails(user_email: str, query: str):
 # ══════════════════════════════════════════════════
 #  QUICK TEST — run this file directly to verify DB
 # ══════════════════════════════════════════════════
-# Run:  python database.py
-# You should see the success messages, and can check
-# your Supabase dashboard's Table Editor to see the data!
 if __name__ == "__main__":
     print("🔧 Testing database setup...")
     init_db()
 
-    # Test: create a dummy user
     create_or_update_user(
         email="test@gmail.com",
         name="Test User",
@@ -450,11 +478,9 @@ if __name__ == "__main__":
         access_token="dummy_token_123"
     )
 
-    # Test: fetch that user back
     user = get_user_by_email("test@gmail.com")
     print(f"✅ User found: {user['name']} ({user['email']})")
 
-    # Test: save a dummy email
     save_email({
         "gmail_id":     "test_gmail_id_001",
         "user_email":   "test@gmail.com",
@@ -469,7 +495,6 @@ if __name__ == "__main__":
         "ai_summary":   "A test email to verify the database works."
     })
 
-    # Test: get stats
     stats = get_stats_for_user("test@gmail.com")
     print(f"✅ Stats: {stats}")
 
