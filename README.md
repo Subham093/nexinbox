@@ -1,306 +1,454 @@
-# 📬 NexInbox
+<h1 align="center">✉️ NexInbox</h1>
+<p align="center"><b>Your Gmail inbox, but an AI has already read it and told you what actually matters.</b></p>
 
-**Your inbox, already sorted.** An AI-powered email intelligence dashboard that connects to your Gmail, reads your latest emails, and tells you what's actually important — before you open a single one.
+<p align="center">
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white"></a>
+  <a href="https://fastapi.tiangolo.com/"><img src="https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white"></a>
+  <a href="https://www.postgresql.org/"><img src="https://img.shields.io/badge/Database-PostgreSQL%20(Supabase)-3ECF8E?logo=supabase&logoColor=white"></a>
+  <a href="https://groq.com/"><img src="https://img.shields.io/badge/LLM-Groq%20%7C%20gpt--oss--120b-orange"></a>
+  <a href=".github/workflows/ci.yml"><img src="https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions&logoColor=white"></a>
+  <a href="https://nexinbox.onrender.com"><img src="https://img.shields.io/badge/Live-nexinbox.onrender.com-46E3B7?logo=render&logoColor=white"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green"></a>
+</p>
 
----
-
-## 📑 Table of Contents
-
-1. [What This Project Is](#what-this-project-is)
-2. [The Problem It Solves](#the-problem-it-solves)
-3. [How It Works — For Everyone](#how-it-works--for-everyone)
-4. [Key Features](#key-features)
-5. [Architecture Overview](#architecture-overview)
-6. [End-to-End Data Flow](#end-to-end-data-flow)
-7. [Tech Stack](#tech-stack)
-8. [Project Structure](#project-structure)
-9. [Important Files Explained](#important-files-explained)
-10. [Capability Matrix](#capability-matrix)
-11. [Security Design](#security-design)
-12. [Current Limitations](#current-limitations)
-13. [Advantages](#advantages)
-14. [Trade-offs](#trade-offs)
-15. [Getting Started](#getting-started)
-16. [Environment Variables](#environment-variables)
-17. [Running Locally](#running-locally)
-18. [How to Use the App](#how-to-use-the-app)
-19. [Testing](#testing)
-20. [AI Accuracy Evaluation Tool](#ai-accuracy-evaluation-tool)
-21. [CI/CD Pipeline](#cicd-pipeline)
-22. [Deployment](#deployment)
-23. [Screenshots](#screenshots)
-24. [Future Improvements](#future-improvements)
-25. [License](#license)
+<p align="center"><b><a href="https://nexinbox.onrender.com">🔗 Live Demo</a></b> · <a href="#-what-is-this-really">What Is This?</a> · <a href="#️-architecture">Architecture</a> · <a href="#️-installation">Setup</a> · <a href="#-real-world-scenarios">Real-World Scenarios</a> · <a href="#-honest-limitations">Limitations</a></p>
 
 ---
 
-## 🚀 What This Project Is
+> 💡 **New here, and don't know what OAuth, an LLM, or a database is?** That's exactly who this README is written for. Every technical section below has a 🟢 **plain-English** explanation before the 🔵 **technical** one. Just read top to bottom.
 
-NexInbox is a full-stack web application that logs into your Gmail account (with your permission, via Google's official login system), pulls your most recent inbox emails, and uses an AI model to automatically figure out:
+<!--
+🖼️ ADD BANNER SCREENSHOT HERE (top of README)
+What to add: A full-width screenshot of the populated dashboard — sidebar
+with filters, priority badges (🔴🟡🟢) and colored category tags visible
+in the email list, stats counters at the top.
+Where: Right below this comment, before the Table of Contents.
+Filename: docs/images/banner.png
+Purpose: The first thing anyone sees. Should say "this is a real, working
+product" before they've read a single word.
+-->
 
-- **How urgent is this email?** (High / Medium / Low priority)
-- **What kind of email is it?** (Work / Finance / Promotions / Social / Newsletters / Other)
-- **What does it actually say?** (a one-sentence AI-generated summary)
+## 📖 Table of Contents
 
-All of that gets shown on a single, clean dashboard — so instead of opening 30 emails one by one, you can scan your inbox in seconds.
+- [What Is This, Really?](#-what-is-this-really)
+- [The Problem It Solves](#-the-problem-it-solves)
+- [Who It's For](#-who-its-for)
+- [Features](#-features)
+- [Demo](#-demo)
+- [Architecture](#️-architecture)
+- [Tech Stack, Explained From Scratch](#-tech-stack-explained-from-scratch)
+- [Project Structure](#️-project-structure)
+- [How It Works — The Complete Flow](#-how-it-works--the-complete-flow)
+- [Installation](#️-installation)
+- [Configuration](#-configuration)
+- [How to Use It](#-how-to-use-it)
+- [Real-World Scenarios (Read This)](#-real-world-scenarios)
+- [What's Remembered, and For How Long](#-whats-remembered-and-for-how-long)
+- [Capability Matrix](#-capability-matrix)
+- [What This App CAN / CANNOT Do](#-what-this-app-can-do)
+- [Edge Cases](#️-edge-cases)
+- [Testing](#-testing)
+- [AI Accuracy — How Would You Even Check?](#-ai-accuracy--how-would-you-even-check)
+- [CI/CD Pipeline](#-cicd-pipeline)
+- [Deployment](#️-deployment)
+- [Security](#-security)
+- [Performance & Scalability](#-performance--scalability)
+- [Honest Limitations](#-honest-limitations)
+- [Future Improvements / Roadmap](#-future-improvements--roadmap)
+- [What This Project Demonstrates](#-what-this-project-demonstrates)
+- [Placement / Interview Preparation](#-placement--interview-preparation)
+- [Resume Description](#-resume-description)
+- [Challenges Faced](#-challenges-faced)
+- [Key Learnings](#-key-learnings)
+- [FAQ](#-faq)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Author](#-author)
+
+---
+
+## 📖 What Is This, Really?
+
+Picture your Gmail inbox right now. Somewhere in there is an interview call you actually need to see today, buried under twelve promotional emails from Myntra and a LinkedIn notification about "14 people viewed your profile."
+
+**NexInbox is a program that opens your inbox for you, reads every email, and quietly sorts them** — this one's urgent, this one can wait, this one's just a sale — before you even look at it. Instead of a plain list of subject lines, you get a dashboard where the important stuff is already flagged 🔴, the maybe-later stuff is 🟡, and the stuff that genuinely doesn't matter is 🟢.
+
+It does this using an actual AI (a large language model), not a hardcoded list of rules — though there's a rules-based backup in case the AI is unreachable, explained in [Scenario 4](#scenario-4--the-ai-service-is-down-or-your-groq-key-is-missing).
 
 ## 🎯 The Problem It Solves
 
-Modern inboxes are noisy. A single day can bring a genuine interview call, three "we're hiring" spam emails, five newsletters, and a security OTP — all mixed together with no way to tell at a glance which one actually needs your attention. NexInbox exists to separate the signal from the noise automatically, using an LLM instead of manual sorting rules you'd have to maintain yourself.
+Manually triaging a busy inbox is slow and error-prone — it's easy to skim past something important while scrolling through a dozen things that don't matter. NexInbox does that triage automatically every time you fetch new mail, so the sorting is already done before you open your inbox.
 
-## 🧠 How It Works — For Everyone
+## 👤 Who It's For
 
-Imagine a very organized assistant standing in front of your mailbox. Every time you ask, they:
+- Students and job-seekers whose inbox mixes interview calls with newsletters and promo spam
+- Anyone who checks their inbox multiple times a day and wants a faster first pass
+- Developers who want a compact, real example of OAuth 2.0 + an LLM API + PostgreSQL wired together properly in FastAPI
 
-1. Walk over to the actual mailbox (Gmail) and grab your newest letters
-2. Read each one quickly
-3. Sort them into labeled trays — "Urgent," "Junk," "Bills," "Social" — based on what's actually inside
-4. Hand you a tidy summary of each one, instead of making you read every word yourself
+---
 
-That's what this app does, except the "assistant" is a large language model, and the "mailbox" is the real Gmail API.
+## ✨ Features
 
-## ✨ Key Features
+| | Feature | What it actually does |
+|---|---|---|
+| 🔐 | **Google Sign-In** | Real OAuth 2.0 login with CSRF `state` protection — NexInbox never sees your password |
+| 📥 | **Inbox Fetching** | Pulls your latest 30 inbox emails on demand |
+| 🤖 | **AI Classification** | Every email gets a priority (🔴 high / 🟡 medium / 🟢 low), a category, and a 1-sentence summary — written by an LLM (Groq) |
+| 🛟 | **Never Leaves You Blank** | If the AI is down, a keyword-based backup classifier still tags every email |
+| 🔍 | **Search** | Matches subject, sender, or AI summary text |
+| 🧭 | **One-Click Filters** | Jump to High Priority, Unread, Work, Finance, etc. |
+| 📊 | **Live Stats** | Total, unread, and a breakdown by priority/category, computed fresh from the database |
+| ✅ | **Real Read-Status** | Reflects what's actually unread in your real Gmail, at fetch time |
+| 🔄 | **Two Kinds of Refresh** | "Fetch" grabs only new mail; "Refresh" atomically wipes and re-checks everything |
+| 📄 | **Full Email View** | Full body + AI summary in one card |
 
-- **Google Sign-In** — log in with your real Google account, no separate password to create
-- **Smart Fetch** — pulls only new emails you don't already have, so repeated checks are fast and cheap
-- **Full Refresh** — wipes and re-fetches everything fresh, safely (explained in [Security Design](#security-design))
-- **AI Classification** — priority + category + one-line summary for every email, generated by an LLM (Groq)
-- **Keyword Fallback** — if the AI service is down or a key is missing, a rule-based classifier still labels every email instead of the app breaking
-- **Real Read/Unread Status** — reflects what Gmail itself says was read, at the moment you fetch (see limitations below for what this does *not* mean)
-- **Filtering & Search** — filter by priority, category, or read status; full-text search across subject, sender, and AI summary
-- **Live Dashboard Stats** — total, unread, read, and per-priority/per-category counts, computed directly from the database
-- **Manual AI Accuracy Tool** — a separate CLI script to measure how often the AI's classification agrees with your own judgment
+---
 
-## 🏗️ Architecture Overview
+## 🎥 Demo
 
-```
-┌──────────────┐      OAuth login       ┌───────────────┐
-│   Browser    │ ─────────────────────▶ │  Google OAuth │
-│  (you)       │ ◀───────────────────── │   & Gmail API │
-└──────┬───────┘      tokens / emails    └───────────────┘
-       │
-       │ HTTP (session cookie: identity only, no secrets)
-       ▼
-┌─────────────────────────────────────────────┐
-│              FastAPI Application              │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌──────┐│
-│  │ main.py │ │ auth.py │ │gmail.py │ │ai.py ││
-│  │ (routes)│ │ (OAuth) │ │(fetch/  │ │(LLM  ││
-│  │         │ │         │ │ parse)  │ │class.)││
-│  └─────────┘ └─────────┘ └─────────┘ └──────┘│
-│                     │                          │
-│              ┌──────▼──────┐                   │
-│              │ database.py │                   │
-│              │ (Postgres   │                   │
-│              │  pool)      │                   │
-│              └──────┬──────┘                   │
-└─────────────────────┼──────────────────────────┘
-                       │
-                       ▼
-              ┌─────────────────┐        ┌─────────────┐
-              │  PostgreSQL DB  │        │   Groq API  │
-              │   (Supabase)    │        │ (LLM calls) │
-              └─────────────────┘        └─────────────┘
-```
+<!--
+🖼️ ADD DEMO GIF HERE
+What to add: login → dashboard → click "Fetch Emails" → list populates
+with badges/tags → open one email → show the AI summary card.
+Where: Right below this comment.
+Filename: docs/images/demo.gif
+Purpose: Single highest-impact visual in this README.
+-->
 
-<!-- ADD IMAGE HERE: A cleaner, designed version of the architecture diagram above, showing the same 4 boxes (Browser, FastAPI app with its 4 modules, Postgres, Groq) with arrows for data flow. Recommended: a horizontal flowchart, 1600x800px, dark background to match the app's own theme. -->
+---
 
-## 🔄 End-to-End Data Flow
+## 🏗️ Architecture
 
-**Step-by-step, exactly what happens in the code:**
+🟢 **Plain English:** your browser talks to a Python server (FastAPI). That server talks to three outside services on your behalf — Google (login + mail), Groq (AI classification), and a database (memory). Nothing outside ever talks to your browser directly.
 
-1. **Login** — User clicks "Login with Google" → `auth.py` redirects to Google with a randomly generated CSRF `state` value stored in the session → Google shows its consent screen → user approves → Google redirects back with an authorization `code`.
-2. **Token exchange** — `auth.py` verifies the `state` matches (rejects the request otherwise), exchanges the `code` for an `access_token` and `refresh_token`, and fetches the user's basic profile.
-3. **Storage split** — the access/refresh tokens are saved **only** in Postgres via `create_or_update_user()`. The browser's session cookie only ever holds the user's email, name, and picture — never the token itself.
-4. **Fetch** — user clicks "Check New Emails" or "Full Refresh" → `main.py` retrieves the access token from Postgres → `gmail.py` calls the real Gmail API (`messages.list` then `messages.get` per message, with automatic retry on rate limits).
-5. **Parsing** — each raw Gmail message is parsed: sender name/email extracted via regex, MIME-encoded subjects decoded, HTML bodies stripped to plain text, and — critically — the real read/unread status is read directly from Gmail's own `labelIds` field (`"UNREAD" in labelIds` → unread).
-6. **AI classification** — parsed emails are batched (10 at a time, to respect Groq's rate limits) and sent to `ai.py`, which prompts the LLM with detailed classification rules and parses the JSON response. If Groq fails or is unreachable, `assign_defaults()` takes over with keyword-based rules instead.
-7. **Save** — classified emails are written to Postgres. "Smart Fetch" only inserts genuinely new emails (checked by `gmail_id`); "Full Refresh" deletes and re-inserts everything for that user in a single atomic transaction — so a failed refresh can never leave you with a wiped, empty inbox.
-8. **Display** — `main.py`'s dashboard route reads from Postgres and renders the Jinja2 templates with the current stats, email list, and filters applied.
+┌──────────────┐ ┌────────────────────┐ ┌──────────────────────┐
+│ Browser │ ───► │ FastAPI (main.py) │ ───► │ Jinja2 Templates │
+│ (what you │ ◄─── │ + login session │ ◄─── │ dashboard / email / │
+│ actually see)│ └─────────┬───────────┘ │ index .html │
+└──────────────┘ │ └──────────────────────┘
+┌──────────────┼───────────────┐
+▼ ▼ ▼
+┌───────────┐ ┌────────────┐ ┌───────────────┐
+│ auth.py │ │ gmail.py │ │ ai.py │
+│ "log me │ │ "get my │ │ "sort my │
+│ in with │ │ emails" │ │ emails" │
+│ Google" │ │ │ │ │
+└─────┬──────┘ └──────┬─────┘ └───────┬─────────┘
+│ │ │
+└────────────────┼────────────────┘
+▼
+┌─────────────────┐
+│ database.py │
+│ "remember │
+│ everything" │
+│ PostgreSQL/Supabase│
+└─────────────────┘
 
-## 🛠️ Tech Stack
 
-| Technology | What It's Actually Used For Here |
-|---|---|
-| **Python 3.12** | The language everything is written in |
-| **FastAPI** | Web framework — defines every route (`/dashboard`, `/fetch-emails`, etc.) |
-| **Uvicorn** | The actual server process that runs the FastAPI app |
-| **Starlette SessionMiddleware** | Signs and manages the login session cookie |
-| **Jinja2** | Server-side HTML templating — renders `dashboard.html` and `email_detail.html` with real data |
-| **httpx** | Makes every outbound HTTP call by hand — to Google's OAuth endpoints, the Gmail API, and the Groq API. No official Google or LLM SDK is used anywhere in this project. |
-| **psycopg2 (with a connection pool)** | Talks to PostgreSQL — all SQL is written directly, no ORM |
-| **PostgreSQL, hosted on Supabase** | Persistent storage for users and emails — chosen specifically because Render's filesystem is wiped on every restart, so SQLite (the original choice) would lose all data |
-| **Groq API** (model: `openai/gpt-oss-120b`) | The actual LLM that classifies priority/category and writes summaries |
-| **Google OAuth 2.0 / Gmail API** | Login and email access — implemented manually with `httpx`, not `google-auth-oauthlib` |
-| **python-dotenv** | Loads secrets from a local `.env` file during development |
-| **pytest** | Test runner |
-| **GitHub Actions** | CI — runs import checks and tests on every push |
-| **Render** | Hosting for the live deployed app |
+<!--
+🖼️ ADD A POLISHED ARCHITECTURE DIAGRAM HERE (optional)
+What to add: A cleaner redraw of the diagram above (e.g. in Excalidraw).
+Where: Right below this comment.
+Filename: docs/images/architecture.png
+Purpose: Reads faster than ASCII for a skimming recruiter.
+-->
 
-## 📂 Project Structure
+---
 
-```
+## 🧠 Tech Stack, Explained From Scratch
+
+**FastAPI**
+🟢 A tool for building a website's "backend" — decides what happens when you click a button.
+🔵 Every route (`/dashboard`, `/fetch-emails`, `/search`, etc.) lives in `main.py`. It's `async`, so one slow request doesn't freeze everyone else.
+
+**OAuth 2.0 (Google Sign-In)**
+🟢 A safe way to let an app use your Google account without ever handing over your password.
+🔵 Implemented by hand with `httpx` (no Google SDK) — the standard "authorization code" flow, with a CSRF `state` parameter verified on callback. Requests only the `gmail.readonly` scope — read access, nothing else.
+
+**Gmail API**
+🟢 The official way for an app to fetch your emails, once you've said yes.
+🔵 REST calls to `gmail.googleapis.com` — a list of message IDs, then each message's full content.
+
+**LLM via Groq**
+🟢 An AI that reads text and answers questions about it, the same idea behind ChatGPT.
+🔵 Batches of up to 10 emails sent to Groq's API (model: `openai/gpt-oss-120b`), with a strict prompt requiring JSON back — validated against a fixed allow-list before being trusted.
+
+**PostgreSQL (hosted on Supabase)**
+🟢 A database — an organized, permanent notebook the app writes to and reads from.
+🔵 Two tables (`users`, `emails`), accessed through a connection pool. Chosen specifically because Render's filesystem is wiped on every restart — the original SQLite version lost data constantly.
+
+**Session Cookie (Starlette `SessionMiddleware`)**
+🟢 A small note the browser keeps so the site remembers you're logged in.
+🔵 Signed (tamper-proof) but **not encrypted** — deliberately holds only your name/email/photo, never your Gmail token. The token lives only in Postgres.
+
+**Jinja2**
+🟢 Fills an HTML page with real data before sending it to your browser.
+🔵 `index.html`, `dashboard.html`, `email_detail.html` are all rendered server-side — no separate JS frontend framework.
+
+**pytest + GitHub Actions**
+🟢 Automated checks that run every time code changes.
+🔵 CI first verifies every core file still imports cleanly, then runs the test suite — both must pass.
+
+---
+
+## 🗂️ Project Structure
+
+```text
 email_intelligence/
-├── .github/workflows/
-│   └── ci.yml              # GitHub Actions CI pipeline
-├── static/
-│   └── css/
-│       └── base.css        # Shared design tokens, sidebar, and nav styles
+│
+├── main.py                  # ⭐ Entry point — every HTTP route
+├── auth.py                  # ⭐ Google login: redirect, callback, token refresh
+├── gmail.py                 # ⭐ Gmail API calls + email parsing
+├── ai.py                    # ⭐ Groq classification + keyword fallback
+├── database.py               # ⭐ All PostgreSQL reads/writes, connection pooling
+│
+├── evaluate_ai.py            # 🧪 Manual CLI tool to score AI accuracy
+├── test_basic.py              # 🧪 Automated tests for gmail.py's parsing functions
+│
 ├── templates/
-│   ├── index.html          # Logged-out landing page
-│   ├── dashboard.html      # Main inbox view — stats, filters, email list
-│   └── email_detail.html   # Single email view with AI summary
-├── ai.py                   # LLM classification + keyword fallback
-├── auth.py                 # Google OAuth login flow
-├── database.py             # PostgreSQL connection pool + all SQL queries
-├── evaluate_ai.py          # Standalone CLI tool to measure AI accuracy
-├── gmail.py                # Gmail API fetching + email parsing
-├── main.py                 # FastAPI app + all routes
-├── test_basic.py           # Automated tests (pure functions in gmail.py)
-├── requirements.txt        # Python dependencies
-├── Procfile                # Tells Render how to start the app
+│   ├── index.html              # Landing page — "Login with Google"
+│   ├── dashboard.html            # Main inbox view
+│   └── email_detail.html          # Full email + AI summary view
+│
+├── static/css/
+│   └── base.css                  # One shared stylesheet
+│
+├── .github/workflows/
+│   └── ci.yml                     # Runs tests automatically on every push
+│
+├── requirements.txt
+├── Procfile                       # Tells Render how to start the app
 ├── .gitignore
-├── LICENSE
-└── README.md
+└── LICENSE
 ```
 
-*Not shown above (correctly excluded from git via `.gitignore`): `.env` (secrets), `venv/` (virtual environment), `__pycache__/` and `.pytest_cache/` (auto-generated caches).*
+**How the files talk to each other:** `main.py` is the only file the browser directly reaches. It calls `auth.py` for login, `gmail.py` + `ai.py` on "Fetch Emails," and `database.py` for everything that needs remembering. `evaluate_ai.py` is a separate script run manually — not part of the running website.
 
-## 📄 Important Files Explained
+---
 
-- **`main.py`** — the entry point. Defines every URL route, handles login-gating (redirects to `/` if not logged in), and wires the database/auth/gmail modules together. Also contains the silent token-refresh logic: if a Gmail request fails because the access token expired, it automatically tries to get a new one using the stored refresh token before forcing a full re-login.
-- **`auth.py`** — the entire Google OAuth flow, including CSRF protection via a random `state` parameter, and a helper to silently refresh an expired access token.
-- **`gmail.py`** — talks to the real Gmail API. Fetches, parses, and normalizes raw Gmail message data into a clean dictionary. Includes retry-with-backoff on Gmail rate limits (HTTP 429).
-- **`ai.py`** — builds the classification prompt, calls Groq, parses and validates the response against a fixed allow-list of priorities/categories (so a malformed or unexpected AI response can never produce invalid data), and retries on transient failures (429/500/502/503) before falling back to keyword-based classification.
-- **`database.py`** — every SQL query in the project lives here, plus a lazily-initialized connection pool (so importing this file never crashes the app just because the database is briefly unreachable).
-- **`evaluate_ai.py`** — a separate, manually-run script (not part of the web app) that shows you the AI's classification for your real stored emails and lets you compare it against your own judgment, printing an accuracy score and a confusion matrix.
+## 🔄 How It Works — The Complete Flow
 
-## 📊 Capability Matrix
+You click "Login with Google"
+↓
+Google shows its own consent screen — you approve read access
+↓
+Google redirects back with a temporary code
+↓
+NexInbox verifies the CSRF state, trades the code for a real access token
+↓
+Token saved in the database — never in your browser
+↓
+You land on the dashboard — empty, until your first fetch
+↓
+You click "Fetch Emails"
+↓
+NexInbox asks Gmail for your latest 30 inbox messages
+↓
+Already-stored emails are skipped — only new ones processed
+↓
+Each new email is parsed: subject, sender, date, body, real read status
+↓
+Emails sent to the AI in batches of 10
+↓
+AI replies with priority + category + summary for each (or keyword fallback if it fails)
+↓
+Everything saved to the database
+↓
+Dashboard reloads with your color-coded, filterable inbox
 
-| Capability | Status |
-|---|---|
-| Google OAuth login | ✅ Fully supported |
-| CSRF protection on login | ✅ Fully supported |
-| Fetching Gmail inbox emails | ✅ Fully supported (latest 30 per fetch, all Gmail tabs combined) |
-| AI priority classification | ✅ Fully supported (Groq, with keyword fallback) |
-| AI category classification | ✅ Fully supported (Groq, with keyword fallback) |
-| AI email summaries | ✅ Fully supported |
-| Real read/unread status from Gmail | ✅ Supported, **one-time snapshot at fetch — not live** |
-| Marking read inside app updates real Gmail | ❌ Not supported — one-directional only |
-| Live/continuous Gmail sync | ❌ Not supported — manual fetch only |
-| Filtering by priority/category/read status | ✅ Fully supported |
-| Full-text search | ✅ Fully supported |
-| Sending, replying to, or deleting emails | ❌ Not supported — read-only Gmail scope |
-| Attachment viewing/download | ❌ Not supported |
-| Fetching more than 30 emails at once | ❌ Not supported — same 30-message limit applies to both Smart Fetch and Full Refresh |
-| Dashboard pagination beyond 50 stored emails | ❌ Not supported |
-| CSRF token on Fetch/Refresh actions | ❌ Not supported — session cookie's `same_site=lax` provides partial mitigation only |
-| Visible indicator when AI falls back to keyword classification | ❌ Not supported — fallback is silent |
-| Multiple email providers (Outlook, etc.) | ❌ Not supported — Gmail only |
-| Token encryption at rest | ❌ Not supported — see [Current Limitations](#current-limitations) |
-| Automated test coverage — parsing logic | ✅ Fully supported |
-| Automated test coverage — database/auth/routes | ❌ Not supported |
 
-## 🔐 Security Design
+---
 
-A few deliberate security decisions worth knowing about, since they came out of real issues found and fixed during development:
+## ⚙️ Installation
 
-- **OAuth CSRF protection** — every login includes a random, one-time `state` value that's verified on callback, preventing an attacker from tricking a user into an unintended login flow.
-- **Tokens never touch the browser** — the Gmail access/refresh tokens live only in Postgres. The session cookie (which is signed but *not* encrypted — a real property of how Starlette's session middleware works) only ever contains non-sensitive identity fields.
-- **Atomic "Full Refresh"** — the app always fetches fresh data from Gmail *first*, and only deletes/replaces the stored data if that fetch actually succeeds. A failed refresh leaves your existing emails untouched instead of wiping your inbox.
-- **Input validation on filters** — priority and category values from the URL are checked against a fixed allow-list before being used in a database query, rather than trusted directly.
-- **`SECRET_KEY` enforcement** — the app refuses to start in production if `SECRET_KEY` isn't explicitly set, rather than silently falling back to an insecure default.
+1. Install Python 3.12: `python --version`
+2. Clone the repo: `git clone <your-repo-url> && cd email_intelligence`
+3. Create a virtual environment: `python -m venv venv`
+4. Activate it — Windows: `venv\Scripts\activate` · Mac/Linux: `source venv/bin/activate`
+5. Install packages: `pip install -r requirements.txt`
+6. Set up a Google Cloud project with OAuth credentials + the Gmail API enabled
+7. Get a free Groq API key at [console.groq.com](https://console.groq.com)
+8. Set up a PostgreSQL database (the live version uses [Supabase](https://supabase.com))
+9. Create a `.env` file (see Configuration below)
+10. Run it: `python main.py` → open `http://localhost:8000`
 
-## ⚠️ Current Limitations
+## 🔐 Configuration
 
-Documented honestly, not hidden:
-
-- **Gmail tokens are stored as plain text** in the Postgres database. If the database itself were ever compromised, stored tokens would grant read access to that user's Gmail. Encrypting these at rest is a known, deliberately-deferred improvement (see [Future Improvements](#future-improvements)).
-- **No live sync.** The app only knows what Gmail's inbox looked like at the moment of the last fetch. Reading an email in real Gmail afterward will not update NexInbox until you fetch again.
-- **Reading an email inside NexInbox does not mark it read in real Gmail.** The relationship is one-directional (Gmail → NexInbox only).
-- **Only the latest 30 inbox emails** are ever considered per fetch — there is no pagination to reach older mail. If more than 30 new emails arrive in Gmail between checks, the oldest of that overflow is never fetched at all, even by a later "Full Refresh" — both actions request the same latest-30 window from Gmail, not a moving window.
-- **The dashboard displays at most 50 stored emails at a time**, with no pagination control to see older stored emails beyond that — a separate cap from the 30-per-fetch limit above, since this one applies to what's already saved in the database.
-- **The AI fallback is silent.** If `GROQ_API_KEY` is missing or the Groq API fails, the app automatically switches to keyword-based classification instead of the LLM — but nothing in the UI indicates this happened. Classifications from the fallback can look noticeably less accurate than the LLM's, with no visible signal to explain why.
-- **No CSRF token on the Fetch/Refresh POST forms.** The session cookie's `same_site="lax"` setting provides partial protection (modern browsers won't attach it to a cross-site POST), but this is a lighter mitigation than an explicit per-form CSRF token, unlike the login flow which does have one.
-- **No automated test coverage** for `database.py`, `auth.py`, `ai.py`, or the FastAPI routes themselves — only the pure parsing functions in `gmail.py` are covered by `test_basic.py`.
-- **Free-tier hosting on Render** means the app "spins down" after a period of inactivity; the first request after that can take 50+ seconds to respond while it wakes back up.
-- **Read-only Gmail access** — the app cannot send, reply to, forward, or delete any email.
-
-## 💪 Advantages
-
-- Genuinely working, end-to-end OAuth implementation — not a mocked or simulated login flow
-- A real fallback path (keyword classification) so the app degrades gracefully instead of breaking when the AI service is unavailable
-- Correct handling of a real production concern: migrating off SQLite specifically because of Render's ephemeral filesystem, not just for its own sake
-- Defensive database design — atomic transactions where data loss risk exists, connection pooling with proper cleanup on failure
-- A working, separate tool (`evaluate_ai.py`) to actually measure classification accuracy rather than assuming the AI is correct
-
-## ⚖️ Trade-offs
-
-- Choosing a 30-email fetch limit keeps each fetch fast and Groq API usage cheap, at the cost of not surfacing older mail
-- Storing tokens unencrypted is simpler to implement and debug, at the cost of a real (if narrow) security exposure if the database were ever breached
-- Manual `httpx`-based OAuth (instead of Google's official SDK) keeps the dependency list small, at the cost of needing to correctly implement token exchange and refresh logic by hand
-
-## 🏁 Getting Started
-
-### Prerequisites
-
-- Python 3.12+
-- A Google Cloud project with OAuth 2.0 credentials (Client ID & Secret) and the Gmail API enabled
-- A PostgreSQL database (this project was built and tested against Supabase's free tier)
-- A Groq API key (optional — the app works without one, using keyword-based classification instead)
-
-### ⚙️ Environment Variables
-
-Create a `.env` file in the project root:
-
-```
+```env
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 REDIRECT_URI=http://localhost:8000/auth/callback
+
 GROQ_API_KEY=your_groq_api_key
-SECRET_KEY=a_long_random_string
-DATABASE_URL=postgresql://user:password@host:port/dbname
-ENVIRONMENT=development
+GROQ_MODEL=openai/gpt-oss-120b        # optional — already the default
+
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+DB_POOL_MAX=10                        # optional — default is 10
+
+SECRET_KEY=a_long_random_string       # required in production
+ENVIRONMENT=development               # set to "production" when deploying
 ```
 
-`ENVIRONMENT=development` (or leaving it unset) keeps session cookies working over plain `http://localhost`. Set it to `production` on your actual deployment.
+🟢 An environment variable is a secret kept outside your code, never uploaded to GitHub.
 
-## 💻 Running Locally
+> ⚠️ If `SECRET_KEY` is missing, the app runs with an insecure placeholder — but **only** while `ENVIRONMENT` isn't `production`. In production, it refuses to start rather than run with a guessable key.
 
-```bash
-# Clone the repo
-git clone <your-repo-url>
-cd email_intelligence
+---
 
-# Create and activate a virtual environment
-python -m venv venv
-venv\Scripts\activate        # Windows
-source venv/bin/activate     # macOS/Linux
+## 🧑‍💻 How to Use It
 
-# Install dependencies
-pip install -r requirements.txt
+1. Open the app, click **Login with Google**, approve the consent screen
+2. Click **Fetch Emails** — your first sync
+3. Browse the dashboard: priority badges, category tags, live stats
+4. Use the sidebar to jump to High Priority, Unread, Work, Finance, etc.
+5. Use search for a specific email
+6. Click any email to read the full body + AI summary — this marks it read inside NexInbox
+7. **Fetch Emails** later for just what's new, or **Refresh** to wipe and fully re-classify
 
-# Run the app
-python main.py
+---
+
+## 🧭 Real-World Scenarios
+
+### Scenario 1 — First Login and First Fetch
+
+<!--
+🖼️ ADD SCREENSHOT HERE: index.html landing page
+Where: Right below this heading. Filename: docs/images/login-page.png
+-->
+
+You log in, land on an empty dashboard, click **Fetch Emails**. NexInbox pulls your latest 30 inbox messages and classifies all of them, since none exist yet.
+
+<!--
+🖼️ ADD SCREENSHOT HERE: populated dashboard right after first fetch
+Filename: docs/images/first-fetch.png
+-->
+
+### Scenario 2 — Clicking "Fetch Emails" Again Later
+
+✅ **Fully supported, and cheap.** NexInbox already knows every `gmail_id` it has stored. Only genuinely new emails get processed:
+
+```python
+if skip_existing and msg_id in existing_ids:
+    skipped += 1
+    continue
 ```
 
-Visit `http://localhost:8000`.
+Nothing new? You'll see "Inbox up to date" — no wasted AI calls, no duplicate rows.
 
-## 👤 How to Use the App
+### Scenario 3 — Clicking "Refresh" Instead
 
-1. Open the app and click **Login with Google**
-2. Approve the requested permissions (profile info + read-only Gmail access)
-3. On the dashboard, click **Fetch Emails** to pull and classify your latest inbox emails
-4. Browse the list — each email shows its AI-assigned priority, category, and date
-5. Click into any email to see the full AI summary and body
-6. Use the sidebar to filter by priority, category, or read status, or use the search bar
-7. Click **Check New Emails** later to pull only what's new, or **Full Refresh** to re-fetch and re-classify everything from scratch
+⚠️ **A different operation, not a stronger "Fetch."** Refresh deletes **all** stored emails and re-fetches + re-classifies everything, atomically:
 
-<!-- ADD IMAGE HERE: Screenshot of the login page (index.html), showing the "Login with Google" button and overall dark theme. -->
+```python
+cursor.execute("DELETE FROM emails WHERE user_email = %s", (user_email,))
+# ...then every fetched email is re-inserted
+conn.commit()   # only commits if every step succeeded
+```
 
-<!-- ADD IMAGE HERE: Screenshot of the main dashboard, showing the stat cards (Total/Unread/Read/High/Medium/Low), sidebar filters, and the email list with priority/category badges visible. -->
+If anything fails partway, the whole thing rolls back and your old data is kept — you're never left with a half-wiped inbox.
 
-<!-- ADD IMAGE HERE: Screenshot of a single email detail page, showing the AI Summary card and the full email body. -->
+**Important overlap gap:** both "Fetch" and "Refresh" request the exact same latest-30-message window from Gmail. If more than 30 new emails arrive between checks, the oldest of that overflow is **never fetched by either action** — Refresh does not mean "catch up on everything since my last visit."
+
+### Scenario 4 — The AI Service Is Down or Your Groq Key Is Missing
+
+🛟 **Nothing breaks — the dashboard just gets less smart for that batch.** `assign_defaults()` kicks in with keyword matching instead:
+
+```python
+if not GROQ_API_KEY:
+    print("⚠️  No GROQ_API_KEY found — using default values")
+    return assign_defaults(emails)
+```
+
+Every email still gets a priority and category — just a cruder one. **There is currently no visual difference in the dashboard** between an AI-classified email and a fallback-classified one — a known, documented gap.
+
+### Scenario 5 — Opening an Email
+
+Marks it read **inside NexInbox's own database** immediately. This does **not** reach out and mark it read in your actual Gmail — the two "read" states are tracked completely separately after that point, and the relationship never runs the other direction either (reading in Gmail is only reflected here at your *next* fetch).
+
+### Scenario 6 — Your Google Access Token Expires
+
+Handled silently — NexInbox tries your stored refresh token to get a new access token automatically. Only if that also fails are you redirected to log in again.
+
+---
+
+## 🧠 What's Remembered, and For How Long
+
+| What | Remembered? | Where / How Long |
+|---|---|---|
+| That you're logged in | ✅ | Session cookie, 24 hours or until logout |
+| Gmail access/refresh tokens | ✅ | PostgreSQL only — **never** in your browser cookie |
+| Every fetched email | ✅ | PostgreSQL, permanently, until a "Refresh" or manual deletion |
+| Read/unread status you set in NexInbox | ✅ | PostgreSQL — independent from Gmail's own status |
+| New emails arriving in Gmail | ❌ (until you click Fetch) | No automatic sync |
+| Anything beyond your latest 30 emails at fetch time | ❌ | Older mail simply never pulled in |
+| More than 50 stored emails on the dashboard | ❌ | No pagination beyond this cap |
+| Your search/filter selection after leaving the page | ❌ | Just URL parameters — refresh resets to "All" |
+
+---
+
+## 🚦 Capability Matrix
+
+| Capability | Supported? | Actual Behavior | Limitations |
+|---|---|---|---|
+| Google Sign-In | ✅ | Real OAuth 2.0 with CSRF `state` verification | Session cookie signed, not encrypted |
+| Fetch inbox emails | ✅ | Latest 30 messages from `INBOX` label | No pagination; overflow beyond 30 is lost |
+| AI priority/category/summary | ✅ | Real Groq LLM call, output validated against a fixed allow-list | Can misclassify; no confidence score shown |
+| Fallback when AI unavailable | ✅ | Deterministic keyword classifier | ⚠️ Silent — no UI indicator this happened |
+| Search | ✅ | Matches subject/sender/AI summary | Capped at 50 results |
+| Filter by priority/category/read status | ✅ | Shareable URLs (e.g. `/filter?priority=high`) | Invalid values silently ignored, not erred |
+| Real Gmail read/unread sync | ⚠️ Partial | Reflects Gmail's real state, but only as a **snapshot at fetch time** | Not live; one-directional (Gmail → NexInbox only) |
+| Incremental fetch | ✅ | Skips already-stored emails | — |
+| Full resync (Refresh) | ✅ | Atomic wipe + re-fetch + re-classify | Shares the same 30-message cap as Fetch |
+| CSRF protection on state-changing forms | ⚠️ Partial | Login has explicit CSRF `state`; Fetch/Refresh forms rely only on `same_site=lax` cookie behavior | No dedicated per-form CSRF token |
+| Token encryption at rest | ❌ | Tokens stored as plain text in Postgres | Real, documented security gap |
+| Automated tests | ⚠️ Partial | Only `gmail.py`'s pure parsing functions covered | Auth, AI, database, and routes are untested |
+| Manual AI accuracy check | ⚠️ Partial | `evaluate_ai.py` works, but is an interactive CLI, not automatic | Not run automatically, no fixed benchmark number |
+| Reply / compose / send email | ❌ | Not supported | Read-only scope by design |
+| Archive / label / delete in real Gmail | ❌ | Not supported | NexInbox never writes back to Gmail |
+| Multiple inboxes per account | ❌ | Not supported | One Gmail account per login |
+| Real-time updates | ❌ | Not supported | Manual click-to-fetch only |
+| Scheduled auto-refresh | 🔄 Future | Not implemented | Would need a scheduler or Gmail push notifications |
+
+---
+
+## ✅ What This App CAN Do
+
+- Log you in securely with your real Google account
+- Pull your latest 30 inbox emails on demand
+- Classify every one with AI — priority, category, 1-sentence summary
+- Keep working (with a cruder fallback) even if Groq is unreachable
+- Let you search and filter without reopening Gmail
+- Show you what's genuinely unread in your real inbox, as of your last fetch
+
+## ❌ What This App CANNOT Do
+
+- Send, reply to, forward, archive, label, or delete anything in real Gmail
+- Show more than ~30–50 emails at a time, with no pagination
+- Automatically check for new mail without a manual click
+- Guarantee the AI never misclassifies something
+- Support more than one Google account per session
+- Visually distinguish an AI-classified email from a keyword-fallback one
+- Encrypt your stored Gmail tokens
+
+---
+
+## ⚠️ Edge Cases
+
+| Situation | What Actually Happens |
+|---|---|
+| No `GROQ_API_KEY` set | Every email classified via keyword fallback |
+| Groq returns malformed JSON | That batch falls back to keywords; other batches unaffected |
+| Groq rate-limits you (`429`) | Automatic retry with exponential backoff, up to 2 extra attempts |
+| Gmail rate-limits you (`429`) | One retry after a short pause |
+| Access token expires mid-session | Silent automatic refresh; falls through to re-login only if that also fails |
+| OAuth `state` mismatch on callback | Rejected outright as possible CSRF — error redirect, no login granted |
+| You deny the Google consent screen | Clear "login denied" redirect, no crash |
+| One Gmail message fails to parse | That message is skipped; the rest of the batch still processes |
+| Database briefly unreachable | Graceful fallback (empty state / re-login redirect), not a raw 500 |
+| More than 30 new emails since last check | Oldest of the overflow is never fetched, by either Fetch or Refresh |
+| "Full Refresh" fails partway through | Old data is kept untouched — never a wiped, half-empty inbox |
+
+---
 
 ## 🧪 Testing
 
@@ -308,110 +456,192 @@ Visit `http://localhost:8000`.
 pytest -v
 ```
 
-Current coverage: `test_basic.py` contains automated tests for the pure parsing functions in `gmail.py` — sender name/email extraction, HTML entity cleanup, and email date parsing across multiple real-world date formats. These are genuine, deterministic tests with no network or database dependency, which is why they're fast and reliable in CI.
+🟢 **What this means:** automated checks that run real functions and confirm they return the right answer — no manual clicking required to verify these specific pieces.
 
-## 🎯 AI Accuracy Evaluation Tool
+**What's actually covered:** the pure, no-network functions in `gmail.py` — sender name/email extraction, HTML-entity cleanup, and email date parsing (9 tests total).
 
-`evaluate_ai.py` is a separate, manually-run command-line script — not part of the web app and not run automatically. After fetching real emails through the app, run:
+**Honestly not covered:** the OAuth login flow, live Gmail API calls, the AI classification logic, the database layer, and every HTTP route. All depend on external services or a live database and would need mocking to test properly — a real, acknowledged gap.
 
-```bash
-python evaluate_ai.py
-```
+---
 
-It walks you through your most recent stored emails, shows you what the AI classified each one as, lets you confirm or correct each label, and then prints an accuracy percentage and a confusion matrix showing exactly where the AI's classifications diverge from your own judgment.
+## 📊 AI Accuracy — How Would You Even Check?
+
+Run `python evaluate_ai.py` after fetching real emails. It pulls your classified emails, shows what the AI decided for each, lets you confirm or correct it, then prints an accuracy percentage and a confusion matrix.
+
+This is a **manual, interactive developer tool** — no fixed accuracy number is claimed here, because it depends entirely on your own inbox's contents at the time you run it.
+
+---
 
 ## 🔄 CI/CD Pipeline
 
-Every push to `main` triggers a GitHub Actions workflow (`.github/workflows/ci.yml`) that:
+✅ **Real CI exists**, via GitHub Actions (`.github/workflows/ci.yml`), on every push to `main`:
 
-1. Installs all dependencies from `requirements.txt`
-2. Verifies that every core module (`ai`, `gmail`, `auth`, `database`, `main`) actually imports without errors, using dummy environment variables — this catches broken imports or syntax errors before they ever reach deployment
-3. Runs the full `pytest` suite — a genuine failure here fails the whole pipeline, it does not silently pass
+Developer → Git Push → GitHub Actions
+→ Install dependencies
+→ Verify every core module imports cleanly (ai, gmail, auth, database, main)
+→ Run the full pytest suite
+→ ❌ fail = red, blocks confidence in the deploy
+→ ✅ pass = green
+(separately) Render auto-deploys from the same push
+
+
+**Honest distinction:** this is genuine CI (real, enforced checks), but there's **no CD gate** — Render's auto-deploy and GitHub Actions currently run independently on the same push, rather than the deploy waiting on a green CI result first.
+
+---
 
 ## ☁️ Deployment
 
-The live app is deployed on **Render** as a web service, connected directly to this GitHub repository with auto-deploy enabled — every push to `main` that passes CI automatically triggers a new deployment. `Procfile` tells Render how to start the app:
+NexInbox is live at **[nexinbox.onrender.com](https://nexinbox.onrender.com)**, deployed on **[Render](https://render.com)**:
 
-```
-web: uvicorn main:app --host 0.0.0.0 --port $PORT
-```
+- Start command (`Procfile`): `web: uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Database: PostgreSQL hosted on **Supabase**, chosen because Render's filesystem doesn't persist across restarts
+- All environment variables from Configuration set in Render's dashboard, with `ENVIRONMENT=production`
 
-The database is a separate, managed PostgreSQL instance on Supabase, chosen because Render's own filesystem does not persist between deploys or restarts.
+**Free-tier characteristic:** the instance spins down after inactivity; the first request afterward can take 50+ seconds while it wakes up — a hosting-platform behavior, not an app bug.
 
-## 📸 Screenshots
+---
 
-<!-- ADD IMAGE HERE: A short demo GIF (10-20 seconds) showing: login → clicking Fetch Emails → the loading overlay → the populated dashboard → clicking into one email. This is the single most valuable visual for a portfolio README. -->
+## 🔒 Security
 
-## 🔮 Future Improvements
+- **CSRF-protected login** — a random `state` value checked on every OAuth callback
+- **Your Gmail token never touches your browser** — stored only in PostgreSQL
+- **Session cookie is signed but not encrypted** — deliberately holds only non-sensitive identity fields
+- **Production refuses to start without a real `SECRET_KEY`**
+- **Prompt-injection aware** — email content is attacker-influenceable data, treated as pure data, never as instructions; AI output is checked against a fixed allow-list before use
+- **All database queries are parameterized** — no raw string concatenation into SQL
+- **`.env` and local database files are git-ignored**
+- ⚠️ **Known gap:** Gmail tokens are stored as **plain text** in Postgres — not encrypted at rest
+- ⚠️ **Known gap:** no dedicated CSRF token on the Fetch/Refresh POST forms — partially mitigated by `same_site=lax`, not equivalent to the login flow's protection
 
-Clearly separated from what currently exists — none of the following are implemented today:
+---
 
-- Encrypt Gmail tokens at rest in the database, with a proper key-management strategy
-- Support pagination to browse emails beyond the latest 30
-- Add automated test coverage for the database layer, auth flow, and web routes (currently only pure parsing logic is tested)
-- Optional "re-analyze this email" action on the detail page, using the model's single-email analysis capability
-- Rate-limit-aware retry with exponential backoff on the Gmail message-fetch loop, beyond the current single retry
-- A background job or webhook-based fetch, instead of requiring a manual click every time
+## ⚡ Performance & Scalability
+
+- AI calls batched (10 emails at a time) with a 6-second pause between batches, plus automatic retries
+- Gmail calls retry once on rate-limiting
+- Database connections pooled rather than opened fresh per request
+- No background job queue or caching layer — comfortably handles one person fetching 30 emails at a time; **not built or tested for high-concurrency, many-users-at-once use**
+
+---
+
+## 🚧 Honest Limitations
+
+- Only your latest 30 emails are ever fetched, and only 50 shown/searched at once — a recent-activity dashboard, not a full mailbox archive
+- Test coverage is thin — real functionality (AI, OAuth, database) isn't covered by automated tests, only plain parsing helpers are
+- No write access to Gmail at all
+- AI can misclassify, with no visual indicator distinguishing AI vs. fallback decisions
+- No scheduling — fetching is always manual
+- Single account only — no multi-account support
+- Gmail tokens stored unencrypted
+
+---
+
+## 🔮 Future Improvements / Roadmap
+
+> Nothing below exists yet — honest ideas for what's next, not current features.
+
+**Near-term**
+- [ ] Visible UI indicator when AI classification falls back to keyword rules
+- [ ] CSRF token on the Fetch/Refresh POST forms
+
+**Mid-term**
+- [ ] Encrypt Gmail tokens at rest, with a real key-management approach
+- [ ] Pagination beyond the current 30-fetch / 50-display caps
+- [ ] Automated tests for `auth.py`, `ai.py`, and `database.py` with mocked external services
+
+**Long-term**
+- [ ] Scheduled auto-refresh (cron or Gmail push notifications) instead of manual clicking
+- [ ] Gate Render's auto-deploy on CI passing, instead of running independently
+- [ ] Support for more than one connected Gmail account
+
+---
+
+## 🧠 What This Project Demonstrates
+
+A hand-implemented OAuth 2.0 authorization-code flow (not a wrapper library) with CSRF protection and token refresh; real third-party API integration across two providers with retry/backoff logic; prompt design with output validation rather than blind trust in an LLM's response; a deliberate fallback path for external AI failure; PostgreSQL schema design with pooling and atomic transactions; and a documented, deliberate trade-off around session cookie security.
+
+---
 
 ## 💼 Placement / Interview Preparation
 
-**30-second explanation:**
-"NexInbox is a full-stack app that logs into your Gmail, pulls your latest emails, and uses an LLM to classify each one by priority and category, then summarizes it — so you can scan your inbox in seconds instead of opening every email."
+**30-second explanation:** "NexInbox logs into your Gmail, pulls your latest emails, and uses an LLM to tag each one with priority and category, plus a one-line summary — so you can scan your inbox instead of opening every email."
 
-**1-minute explanation:**
-"It's built with FastAPI and PostgreSQL, hosted on Render with a Supabase database. Users log in with Google OAuth — I implemented the full flow by hand with `httpx`, including CSRF protection via a state parameter, and I deliberately keep the access token out of the browser cookie, storing it only server-side in Postgres. Once logged in, it pulls the latest 30 Gmail messages, sends them to Groq's LLM for classification into priority and category, and falls back to a keyword-based classifier if the AI service is unavailable, so the app never fully breaks. I also built a separate CLI tool to manually measure how accurate the AI's classifications actually are against my own judgment."
-
-**2-minute technical explanation:** add to the 1-minute version — the database migration story (SQLite → Postgres because Render wipes the filesystem on restart), the connection pooling design (lazy init so a DB outage doesn't crash the app at import time), the atomic "Full Refresh" transaction (fetch first, only replace data after success, so a failed refresh can never wipe your inbox), and the CI pipeline that verifies every module imports and every test passes on push.
-
-**Concepts to be ready to explain:** OAuth 2.0 authorization code flow, CSRF and why the `state` parameter matters, session cookies (signed vs. encrypted — this project's cookie is signed only), connection pooling, database transactions and atomicity, prompt injection (and why it's low-risk here specifically), graceful degradation/fallback design.
+**2-minute technical explanation:** Add — the hand-built OAuth flow with CSRF `state`, tokens stored server-side only, direct `httpx` calls to Gmail/Groq (no SDKs), Postgres on Supabase chosen because Render's filesystem doesn't persist, the keyword fallback for graceful degradation, and a real CI pipeline that fails on broken imports or failing tests.
 
 **Likely interviewer questions, with honest answers:**
-
-- *"What happens if more than 30 new emails arrive between checks?"* — "The oldest of the overflow is never fetched — both Smart Fetch and Full Refresh request the same latest-30 window from Gmail. I'd fix this with a Gmail push notification/webhook approach instead of polling."
-- *"Is this secure?"* — "The OAuth flow itself is solid — CSRF-protected, tokens never touch the browser. The known gap is that tokens are stored as plain text in Postgres; encrypting them at rest with a proper key-management approach is the next step I'd take."
-- *"How confident are you this doesn't break in production?"* — "Honestly, moderately. The parsing logic has real test coverage, and CI verifies every module imports cleanly. But the database layer, auth flow, and routes don't have automated tests yet — that's the most honest gap in this project."
-- *"Why Postgres over SQLite?"* — "Render wipes its filesystem on every restart and redeploy, so SQLite would lose all data constantly. Postgres via Supabase persists independently."
+- *"What happens if more than 30 new emails arrive between checks?"* — "The oldest of the overflow is never fetched — both buttons share the same latest-30 window. I'd fix this with a Gmail push-notification approach instead of polling."
+- *"Is this secure?"* — "The OAuth flow is solid — CSRF-protected, tokens never touch the browser. The known gap is tokens stored as plain text in Postgres; encrypting them at rest is the next step."
+- *"How confident are you this doesn't break in production?"* — "Moderately. Parsing logic has real tests and CI verifies every import. The database layer, auth flow, and routes don't have automated tests yet — that's the most honest gap."
+- *"Why Postgres over SQLite?"* — "Render wipes its filesystem on every restart, so SQLite lost data constantly. Postgres via Supabase persists independently."
 
 ## 📝 Resume Description
 
-> Built a full-stack email intelligence dashboard (FastAPI, PostgreSQL, Google OAuth 2.0, Groq LLM API) that authenticates users via Gmail, classifies emails by priority and category using an LLM with a graceful keyword-based fallback, and displays results on a real-time filterable dashboard; implemented CSRF-protected OAuth flow, atomic database transactions to prevent data loss on failed operations, connection pooling, and a CI pipeline with automated testing; deployed on Render with a managed Postgres backend.
+> Built a full-stack email intelligence dashboard (FastAPI, PostgreSQL, Google OAuth 2.0, Groq LLM API) that authenticates users via Gmail, classifies emails by priority and category using an LLM with a graceful keyword-based fallback, and displays results on a filterable dashboard; implemented CSRF-protected OAuth, atomic database transactions to prevent data loss on failed operations, connection pooling, and a CI pipeline with automated testing; deployed on Render with a managed Postgres backend.
 
 ## 🧗 Challenges Faced
 
-Based on the actual development history of this project:
-
-- **Data loss on failed refreshes** — an early version of the "Full Refresh" feature deleted existing emails before confirming the new fetch succeeded, risking a wiped inbox on any Gmail API failure. Fixed by restructuring to fetch-then-replace atomically in one transaction.
-- **Silent database bugs** — a schema migration (adding real `BOOLEAN`/`TIMESTAMP` columns) didn't retroactively apply to the already-deployed database, causing the dashboard to silently show incorrect stats until manually caught and diagnosed via terminal error logs.
-- **Ephemeral hosting filesystem** — SQLite was the original database choice, but Render's filesystem doesn't persist across restarts, which surfaced as data randomly disappearing — the actual reason for the Postgres migration.
+- **Data loss risk on failed refreshes** — an early version of "Full Refresh" deleted existing emails before confirming the new fetch succeeded. Fixed by restructuring to fetch-then-replace atomically in one transaction.
+- **Silent database bugs** — a schema migration (real `BOOLEAN`/`TIMESTAMP` columns) didn't retroactively apply to the already-deployed database, silently showing incorrect stats until diagnosed via terminal error logs.
+- **Ephemeral hosting filesystem** — SQLite was the original database choice; Render's filesystem doesn't persist across restarts, which surfaced as data randomly disappearing — the actual reason for the Postgres migration.
 
 ## 💡 Key Learnings
 
-- OAuth 2.0 is straightforward to *use* via a library, but implementing the token exchange, CSRF state, and refresh flow by hand surfaces real security considerations that are easy to skip when using an SDK
-- A working fallback path (keyword classification) is often more valuable in an interview conversation than the primary AI feature itself — it demonstrates thinking about failure, not just the happy path
-- Schema migrations on an already-deployed database need explicit `ALTER TABLE` statements — `CREATE TABLE IF NOT EXISTS` silently does nothing on existing tables, a genuinely easy mistake to make once and learn from
+- OAuth 2.0 is easy to *use* via a library, but implementing token exchange, CSRF state, and refresh by hand surfaces real security considerations easy to skip with an SDK
+- A working fallback path is often more valuable in an interview conversation than the primary AI feature itself — it demonstrates thinking about failure, not just the happy path
+- Schema migrations on an already-deployed database need explicit `ALTER TABLE` statements — `CREATE TABLE IF NOT EXISTS` silently does nothing on existing tables
 
-## 🗺️ Roadmap
-
-- [ ] Add automated test coverage for `database.py`, `auth.py`, and the FastAPI routes
-- [ ] Encrypt Gmail tokens at rest
-- [ ] Visible UI indicator when AI classification falls back to keyword rules
-- [ ] Pagination for stored emails beyond the current 50-email display limit
-- [ ] CSRF token on the Fetch/Refresh POST forms
+---
 
 ## ❓ FAQ
 
-**Does this app read emails older than my most recent 30?**
-No — every fetch (Smart or Full Refresh) only requests the latest 30 inbox messages from Gmail. There's currently no way to reach older mail.
+<details>
+<summary><b>Does NexInbox ever send, delete, or archive my real emails?</b></summary>
+<br>
+No. Read-only scope — nothing writes back to real Gmail.
+</details>
 
-**Can this app send or delete emails?**
-No. It requests Gmail's `readonly` scope only — it can view emails but cannot send, reply, forward, or delete anything.
+<details>
+<summary><b>Is my Gmail password stored anywhere?</b></summary>
+<br>
+No — Google handles login itself; NexInbox only ever receives a limited access token after you approve it.
+</details>
 
-**If I read an email in real Gmail, does this app know?**
-Only at the moment of your next fetch — it's a snapshot, not a live sync. The reverse is also true: marking an email read inside this app does not mark it read in real Gmail.
+<details>
+<summary><b>If I mark an email read in NexInbox, does it mark it read in real Gmail?</b></summary>
+<br>
+No — one-directional. Reading in real Gmail eventually reflects here at your next fetch; the reverse never happens.
+</details>
 
-**What happens if the Groq AI service is down?**
-Classification automatically falls back to a keyword-based system instead of failing — though currently there's no visible indicator in the UI that this happened.
+<details>
+<summary><b>What happens if the AI gets something wrong?</b></summary>
+<br>
+It's classified incorrectly for that email — there's no way to manually correct a single email's label from the dashboard today. Running "Refresh" re-classifies everything, which may or may not change the result.
+</details>
+
+<details>
+<summary><b>Why does clicking "Fetch Emails" twice sometimes do nothing?</b></summary>
+<br>
+Working as intended — if no new mail arrived since your last fetch, there's nothing new to process.
+</details>
+
+<details>
+<summary><b>Can I connect more than one Gmail account?</b></summary>
+<br>
+Not currently — one Google account per login session.
+</details>
+
+---
 
 ## 🤝 Contributing
 
 This is currently a personal portfolio project and not actively seeking contributions, but suggestions and issues are welcome via GitHub.
+
+## 📜 License
+
+This project is licensed under the [MIT License](./LICENSE).
+
+## 👤 Author
+
+**Subham Maheswari Jena**
+
+Built as part of an internship project (NALCO) and a placement-interview portfolio, exploring OAuth 2.0, LLM API integration, and PostgreSQL-backed full-stack development with FastAPI.
