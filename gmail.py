@@ -9,11 +9,20 @@ import httpx
 import base64
 import re
 import html as html_module
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter
 
 router = APIRouter()
 GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
+
+# NexInbox is a single-user portfolio project with no per-account timezone
+# setting, unlike Gmail's own web UI (which converts every email's Date
+# header to whatever timezone the Google account itself is configured
+# with). To match that behavior, dates are converted to IST (UTC+5:30)
+# here — a fixed offset, so no DST handling is needed for India. If this
+# app is ever used from outside IST, this would need to become a real
+# per-user setting instead of a hardcoded constant.
+IST = timezone(timedelta(hours=5, minutes=30))
 
 
 async def fetch_and_analyze_emails(user_email: str, access_token: str, skip_existing: bool = True):
@@ -310,17 +319,49 @@ def clean_text(text: str) -> str:
 
 
 def parse_email_date(date_str: str) -> str:
+    """
+    Parses a raw Gmail "Date" header and returns it as a local (IST)
+    timestamp string, matching what Gmail's own web UI shows.
+
+    BUG FIX: the previous version parsed the timezone offset (%z) from
+    the header correctly, but then formatted the datetime WITHOUT
+    converting it — so an email timestamped in UTC (or any non-IST
+    offset) displayed its raw original-timezone clock time and date
+    instead of the local time a user would actually expect, sometimes
+    shifting the date itself by a day. Now, whenever the header
+    includes a parseable UTC offset, the datetime is explicitly
+    converted to IST before formatting.
+    """
     if not date_str:
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    formats = [
-        "%a, %d %b %Y %H:%M:%S %z", "%d %b %Y %H:%M:%S %z",
+        return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+
+    date_str = re.sub(r'\s*\([^)]*\)', '', date_str).strip()
+
+    # Formats that include a numeric UTC offset (%z) — these can be
+    # reliably converted to IST.
+    offset_formats = [
+        "%a, %d %b %Y %H:%M:%S %z",
+        "%d %b %Y %H:%M:%S %z",
+    ]
+    for fmt in offset_formats:
+        try:
+            parsed = datetime.strptime(date_str, fmt)
+            return parsed.astimezone(IST).strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+
+    # Formats with a named zone (%Z) or no zone at all — Python's %Z
+    # parsing is unreliable for anything but UTC/local, so there's no
+    # trustworthy offset to convert from here. Parsed and returned as-is
+    # rather than guessing, which was also the previous behavior.
+    naive_formats = [
         "%a, %d %b %Y %H:%M:%S %Z", "%d %b %Y %H:%M:%S %Z",
         "%a, %d %b %Y %H:%M:%S",    "%d %b %Y %H:%M:%S",
     ]
-    date_str = re.sub(r'\s*\([^)]*\)', '', date_str).strip()
-    for fmt in formats:
+    for fmt in naive_formats:
         try:
             return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d %H:%M:%S")
         except ValueError:
             continue
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
