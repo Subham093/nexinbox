@@ -77,10 +77,9 @@ def test_clean_snippet_handles_empty_string():
 # ══════════════════════════════════════════════════
 
 def test_parse_email_date_standard_format():
-    """Should correctly parse a standard email date header."""
+    """A UTC email date should now be converted to IST (UTC+5:30) to match Gmail's own display."""
     result = parse_email_date("Mon, 15 Jan 2024 10:30:00 +0000")
-    assert result == "2024-01-15 10:30:00"
-
+    assert result == "2024-01-15 16:00:00"
 
 def test_parse_email_date_handles_empty_string():
     """If no date is provided, it should fall back gracefully instead of crashing."""
