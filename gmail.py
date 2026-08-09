@@ -1,7 +1,7 @@
 # ============================================================
 #  gmail.py — Fetch Real Emails from Gmail API
-#  CORRECTED VERSION — fixes named-timezone (GMT/UTC) headers
-#  not being converted to IST (see parse_email_date docstring).
+#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff
+#  summary of every change made in this file.
 # ============================================================
 
 import asyncio
@@ -10,7 +10,6 @@ import base64
 import re
 import html as html_module
 from datetime import datetime, timezone, timedelta
-from email.utils import parsedate_to_datetime
 from fastapi import APIRouter
 
 router = APIRouter()
@@ -324,31 +323,45 @@ def parse_email_date(date_str: str) -> str:
     Parses a raw Gmail "Date" header and returns it as a local (IST)
     timestamp string, matching what Gmail's own web UI shows.
 
-    BUG FIX (this version): the previous version only converted to IST
-    when the header had a NUMERIC offset (e.g. "+0000"). Headers using a
-    NAMED zone — "GMT" is extremely common — fell into a separate branch
-    that returned the time completely unconverted, still showing raw
-    sender time. That branch also relied on strptime's "%Z", which is
-    unreliable for matching literal zone names like "GMT" across
-    platforms, so many of those emails were silently falling all the way
-    through to "now" instead.
-
-    FIX: use email.utils.parsedate_to_datetime, the standard library's
-    own RFC 2822 parser. It correctly resolves both numeric offsets and
-    common named zones (GMT, UTC, EST, etc.) to a real UTC offset, so
-    every email — regardless of header format — gets converted to IST
-    consistently. If the header has no timezone info at all (rare, but
-    technically legal), UTC is assumed as the safest default before
-    converting, rather than treating it as local/naive time.
+    BUG FIX: the previous version parsed the timezone offset (%z) from
+    the header correctly, but then formatted the datetime WITHOUT
+    converting it — so an email timestamped in UTC (or any non-IST
+    offset) displayed its raw original-timezone clock time and date
+    instead of the local time a user would actually expect, sometimes
+    shifting the date itself by a day. Now, whenever the header
+    includes a parseable UTC offset, the datetime is explicitly
+    converted to IST before formatting.
     """
     if not date_str:
         return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
 
-    try:
-        parsed = parsedate_to_datetime(date_str)
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        return parsed.astimezone(IST).strftime("%Y-%m-%d %H:%M:%S")
-    except (TypeError, ValueError) as e:
-        print(f"  ⚠️  Could not parse date '{date_str}': {e}")
-        return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+    date_str = re.sub(r'\s*\([^)]*\)', '', date_str).strip()
+
+    # Formats that include a numeric UTC offset (%z) — these can be
+    # reliably converted to IST.
+    offset_formats = [
+        "%a, %d %b %Y %H:%M:%S %z",
+        "%d %b %Y %H:%M:%S %z",
+    ]
+    for fmt in offset_formats:
+        try:
+            parsed = datetime.strptime(date_str, fmt)
+            return parsed.astimezone(IST).strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+
+    # Formats with a named zone (%Z) or no zone at all — Python's %Z
+    # parsing is unreliable for anything but UTC/local, so there's no
+    # trustworthy offset to convert from here. Parsed and returned as-is
+    # rather than guessing, which was also the previous behavior.
+    naive_formats = [
+        "%a, %d %b %Y %H:%M:%S %Z", "%d %b %Y %H:%M:%S %Z",
+        "%a, %d %b %Y %H:%M:%S",    "%d %b %Y %H:%M:%S",
+    ]
+    for fmt in naive_formats:
+        try:
+            return datetime.strptime(date_str, fmt).strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+
+    return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
