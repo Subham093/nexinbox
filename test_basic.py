@@ -1,6 +1,5 @@
-# ============================================================
 #  test_basic.py — A few real, automated tests
-# ============================================================
+
 # These test the "pure functions" in gmail.py — functions that
 # take an input and always return the same output, with no
 # network calls or database involved. That makes them easy and
@@ -8,7 +7,8 @@
 #
 # Run locally with:   pytest -v
 # Runs automatically in CI on every push (see .github/workflows/ci.yml)
-# ============================================================
+#ci
+
 
 from gmail import (
     extract_sender_name,
@@ -17,10 +17,7 @@ from gmail import (
     parse_email_date,
 )
 
-
-# ══════════════════════════════════════════════════
 #  Tests for extract_sender_name()
-# ══════════════════════════════════════════════════
 
 def test_extract_sender_name_with_quotes():
     """A normal 'Name <email>' sender should return just the name."""
@@ -40,9 +37,7 @@ def test_extract_sender_name_only_email():
     assert result == "noreply@company.com"
 
 
-# ══════════════════════════════════════════════════
 #  Tests for extract_email_address()
-# ══════════════════════════════════════════════════
 
 def test_extract_email_address_normal():
     """Should correctly pull the email out of 'Name <email>' format."""
@@ -56,9 +51,7 @@ def test_extract_email_address_plain():
     assert result == "plain@example.com"
 
 
-# ══════════════════════════════════════════════════
 #  Tests for clean_snippet()
-# ══════════════════════════════════════════════════
 
 def test_clean_snippet_unescapes_html_entities():
     """Gmail sometimes sends snippets with HTML-escaped characters like &amp;"""
@@ -72,9 +65,7 @@ def test_clean_snippet_handles_empty_string():
     assert result == ""
 
 
-# ══════════════════════════════════════════════════
 #  Tests for parse_email_date()
-# ══════════════════════════════════════════════════
 
 def test_parse_email_date_standard_format():
     """A UTC email date should now be converted to IST (UTC+5:30) to match Gmail's own display."""

@@ -1,31 +1,24 @@
-# ============================================================
 #  evaluate_ai.py — Measure AI Classification Accuracy
-# ============================================================
-# Run this file AFTER fetching emails to measure how accurate
-# the AI classification is.
-#
+# Run this file AFTER fetching emails to measure how accurate the AI classification is.
 # How it works:
 #   1. Loads your emails from the database
 #   2. You manually label a sample (20-30 emails)
 #   3. Compares AI labels vs your manual labels
 #   4. Prints accuracy score + confusion matrix
-#
+
 # NOTE: This now reuses database.py's PostgreSQL/Supabase connection —
 # it used to connect to a local SQLite file directly, which stopped
 # reflecting reality once the app migrated off SQLite. Always evaluate
 # against the real, live data.
-#
 # Run: python evaluate_ai.py
-# ============================================================
 
 from collections import defaultdict
 from database import get_db
 
 
-# ══════════════════════════════════════════════════
 #  STEP 1: Print all emails with AI labels
 #  (You will manually decide if they're correct)
-# ══════════════════════════════════════════════════
+
 def print_emails_for_review(user_email: str, limit: int = 30):
     """Prints emails with their AI classifications for manual review."""
     conn = get_db()
@@ -55,9 +48,8 @@ def print_emails_for_review(user_email: str, limit: int = 30):
     return [dict(row) for row in rows]
 
 
-# ══════════════════════════════════════════════════
 #  STEP 2: Calculate accuracy
-# ══════════════════════════════════════════════════
+
 def calculate_accuracy(predictions: list, ground_truth: list, label_type: str):
     if len(predictions) != len(ground_truth):
         print("❌ Length mismatch!")
@@ -77,9 +69,8 @@ def calculate_accuracy(predictions: list, ground_truth: list, label_type: str):
     return accuracy
 
 
-# ══════════════════════════════════════════════════
 #  STEP 3: Confusion Matrix
-# ══════════════════════════════════════════════════
+
 def print_confusion_matrix(predictions: list, ground_truth: list, labels: list):
     matrix = defaultdict(lambda: defaultdict(int))
     for pred, actual in zip(predictions, ground_truth):
@@ -108,9 +99,8 @@ def print_confusion_matrix(predictions: list, ground_truth: list, labels: list):
     print(f"❌ Off-diagonal = misclassifications")
 
 
-# ══════════════════════════════════════════════════
 #  STEP 4: Per-category breakdown
-# ══════════════════════════════════════════════════
+
 def per_category_accuracy(predictions: list, ground_truth: list, labels: list):
     print(f"\n{'='*50}")
     print(f"📊 PER-CATEGORY BREAKDOWN")
@@ -129,9 +119,8 @@ def per_category_accuracy(predictions: list, ground_truth: list, labels: list):
         print(f"{label:<12} [{bar}] {pct:5.1f}%  ({correct}/{total})")
 
 
-# ══════════════════════════════════════════════════
 #  MAIN: Run full evaluation
-# ══════════════════════════════════════════════════
+
 if __name__ == "__main__":
     print("\n🔍 NexInbox AI Accuracy Evaluator")
     print("="*50)

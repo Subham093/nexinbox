@@ -1,8 +1,4 @@
-# ============================================================
 #  gmail.py — Fetch Real Emails from Gmail API
-#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff
-#  summary of every change made in this file.
-# ============================================================
 
 import asyncio
 import httpx
@@ -365,3 +361,4 @@ def parse_email_date(date_str: str) -> str:
             continue
 
     return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+#ci

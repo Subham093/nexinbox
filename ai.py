@@ -1,9 +1,4 @@
-# ============================================================
 #  ai.py — The AI Brain (using Groq)
-#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff
-#  summary of every change made in this file.
-# ============================================================
-
 import os
 import json
 import httpx
@@ -17,9 +12,7 @@ GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL   = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 
-# ══════════════════════════════════════════════════
 #  MAIN FUNCTION: Analyze a batch of emails
-# ══════════════════════════════════════════════════
 async def analyze_emails_batch(emails: list) -> list:
     """
     Takes a list of email dicts, sends them to AI in batches of 10,
@@ -57,9 +50,7 @@ async def analyze_emails_batch(emails: list) -> list:
     return results
 
 
-# ══════════════════════════════════════════════════
 #  CORE: Send one batch of emails to Groq
-# ══════════════════════════════════════════════════
 async def analyze_batch(emails: list) -> list:
     """
     Sends a batch of emails to Groq and parses the JSON response.
@@ -212,9 +203,8 @@ async def _post_with_retry(payload: dict, retries: int = 2):
             delay *= 2
     return None
 
-# ══════════════════════════════════════════════════
+
 #  FALLBACK: Assign default values without AI
-# ══════════════════════════════════════════════════
 def assign_defaults(emails: list) -> list:
     """Used when AI is unavailable. Uses keyword matching."""
     for email in emails:
@@ -265,9 +255,7 @@ def assign_defaults(emails: list) -> list:
     return emails
 
 
-# ══════════════════════════════════════════════════
 #  TEST
-# ══════════════════════════════════════════════════
 if __name__ == "__main__":
     test_emails = [
         {

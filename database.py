@@ -1,8 +1,4 @@
-# ============================================================
 #  database.py — Your Storage Room (PostgreSQL / Supabase)
-#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff
-#  summary of every change made in this file.
-# ============================================================
 
 import os
 import psycopg2
@@ -65,9 +61,7 @@ def get_db():
     return _PooledConnection(_get_pool().getconn())
 
 
-# ══════════════════════════════════════════════════
 #  1. INIT: Create all tables + indexes if they don't exist
-# ══════════════════════════════════════════════════
 def init_db():
     conn = get_db()
     cursor = conn.cursor()
@@ -129,9 +123,7 @@ def init_db():
         conn.close()
 
 
-# ══════════════════════════════════════════════════
 #  2. USER FUNCTIONS
-# ══════════════════════════════════════════════════
 
 def create_or_update_user(email: str, name: str, picture: str,
                            access_token: str, refresh_token: str = None):
@@ -187,10 +179,7 @@ def update_access_token(email: str, access_token: str):
         conn.close()
 
 
-# ══════════════════════════════════════════════════
 #  3. EMAIL FUNCTIONS
-# ══════════════════════════════════════════════════
-
 def save_email(email_data: dict):
     conn = get_db()
     cursor = conn.cursor()
@@ -392,9 +381,7 @@ def delete_emails_for_user(user_email: str):
         conn.close()
 
 
-# ══════════════════════════════════════════════════
 #  4. STATS FUNCTION (for dashboard counters)
-# ══════════════════════════════════════════════════
 
 def get_stats_for_user(user_email: str):
     conn = get_db()
@@ -432,9 +419,8 @@ def get_stats_for_user(user_email: str):
         conn.close()
 
 
-# ══════════════════════════════════════════════════
 #  SEARCH FUNCTION
-# ══════════════════════════════════════════════════
+
 def search_emails(user_email: str, query: str):
     if not query or not query.strip():
         return get_emails_for_user(user_email)
@@ -464,9 +450,8 @@ def search_emails(user_email: str, query: str):
         conn.close()
 
 
-# ══════════════════════════════════════════════════
 #  QUICK TEST — run this file directly to verify DB
-# ══════════════════════════════════════════════════
+
 if __name__ == "__main__":
     print("🔧 Testing database setup...")
     init_db()
@@ -499,3 +484,4 @@ if __name__ == "__main__":
     print(f"✅ Stats: {stats}")
 
     print("\n🎉 database.py is working perfectly with PostgreSQL!")
+    #ci

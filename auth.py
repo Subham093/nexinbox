@@ -1,8 +1,5 @@
-# ============================================================
 #  auth.py — Google Login ("Who are you?")
-#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff
-#  summary of every change made in this file.
-# ============================================================
+
 # The flow works like this:
 #   1. User clicks "Login with Google" on your site
 #   2. Your app redirects them to Google's login page
@@ -201,9 +198,7 @@ async def auth_callback(request: Request, code: str = None, error: str = None, s
     return RedirectResponse(url="/dashboard", status_code=302)
 
 
-# ══════════════════════════════════════════════════
 #  HELPER: Refresh expired access token
-# ══════════════════════════════════════════════════
 async def refresh_access_token(refresh_token: str, user_email: str):
     """Gets a new access token using refresh token when current one expires."""
     if not refresh_token:

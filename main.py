@@ -1,6 +1,4 @@
 #  main.py — Entry Point
-#  CORRECTED VERSION — see CODE_REVIEW_REPORT.md for the diff summary.
-
 import os
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse

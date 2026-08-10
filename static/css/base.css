@@ -1,13 +1,3 @@
-/* ============================================================
-   base.css — shared design tokens, reset, and sidebar/nav styles
-   Previously this exact block (down to the CSS variable names) was
-   copy-pasted inside a <style> tag in dashboard.html AND
-   email_detail.html. Any tweak (e.g. changing --accent) had to be
-   made in two places and reliably drifted out of sync over time.
-   Now every template links this one file and only keeps styles
-   that are actually specific to that page.
-   ============================================================ */
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {

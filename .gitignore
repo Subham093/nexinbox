@@ -1,11 +1,10 @@
-# ══════════════════════════════════════════════════
 #  .gitignore — Files to NEVER upload to GitHub
-# ══════════════════════════════════════════════════
 
-# ── SECRET KEYS — NEVER commit this! ──────────────
+
+# ── SECRET KEYS ──────────────
 .env
 
-# ── Database — contains your real emails! ─────────
+# ── Database — contains the real emails! ─────────
 *.db
 *.sqlite
 *.sqlite3
@@ -50,3 +49,4 @@ build/
 .pytest_cache/
 htmlcov/
 .coverage
+#ci
