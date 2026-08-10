@@ -361,4 +361,3 @@ def parse_email_date(date_str: str) -> str:
             continue
 
     return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
-#ci
