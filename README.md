@@ -202,9 +202,19 @@ email_intelligence/
 └── LICENSE
 ```
 
-## How the files talk to each other: 
+## How the files talk to each other
 
-The browser directly reaches two files' routes — `main.py` (all the main pages: dashboard, email detail, fetch, search, etc.) and `auth.py` (the `/auth/login` and `/auth/callback` steps of the Google login flow, mounted as their own router). `main.py` then calls into `gmail.py` and `ai.py` internally when you click "Fetch Emails," and into `database.py` for everything that needs remembering. `gmail.py` does declare its own router too, but it has no actual routes defined on it — it's mounted but currently unused by the browser. `evaluate_ai.py` is a separate script run manually in a terminal — not part of the running website at all.
+The browser directly reaches two files' routes:
+
+- `main.py` — all the main pages: dashboard, email detail, fetch, search, etc.
+- `auth.py` — the `/auth/login` and `/auth/callback` steps of the Google login flow, mounted as their own router.
+
+`main.py` then calls into `gmail.py` and `ai.py` internally when you click **"Fetch Emails"**, and into `database.py` for everything that needs remembering.
+
+`gmail.py` does declare its own router too, but it has no actual routes defined on it — it's mounted but currently unused by the browser.
+
+`evaluate_ai.py` is a separate script run manually in a terminal — not part of the running website at all.
+
 ---
 
 ## 🔄 How It Works — The Complete Flow
@@ -246,7 +256,11 @@ Dashboard reloads with your color-coded, filterable inbox
 1. Install Python 3.12: `python --version`
 2. Clone the repo: `git clone https://github.com/Subham093/nexinbox.git && cd nexinbox`
 3. Create a virtual environment: `python -m venv venv`
-4. Activate it — Windows (PowerShell): `venv\Scripts\Activate.ps1` (if this fails with a permissions error, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` first, then try again) · Windows (cmd): `venv\Scripts\activate.bat` · Mac/Linux: `source venv/bin/activate`
+4. Activate it — Windows (PowerShell): `venv\Scripts\Activate.ps1` (if this fails with a permissions error, run 
+`Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` 
+first, then try again) 
+ .Windows (cmd): `venv\Scripts\activate.bat` 
+ · Mac/Linux: `source venv/bin/activate`
 5. Install packages: `pip install -r requirements.txt`
 6. Set up a Google Cloud project with OAuth credentials + the Gmail API enabled
 7. Get a free Groq API key at [console.groq.com](https://console.groq.com)
