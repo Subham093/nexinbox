@@ -202,7 +202,9 @@ email_intelligence/
 └── LICENSE
 ```
 
-**How the files talk to each other:** The browser directly reaches two files' routes — `main.py` (all the main pages: dashboard, email detail, fetch, search, etc.) and `auth.py` (the `/auth/login` and `/auth/callback` steps of the Google login flow, mounted as their own router). `main.py` then calls into `gmail.py` and `ai.py` internally when you click "Fetch Emails," and into `database.py` for everything that needs remembering. `gmail.py` does declare its own router too, but it has no actual routes defined on it — it's mounted but currently unused by the browser. `evaluate_ai.py` is a separate script run manually in a terminal — not part of the running website at all.
+## How the files talk to each other: 
+
+The browser directly reaches two files' routes — `main.py` (all the main pages: dashboard, email detail, fetch, search, etc.) and `auth.py` (the `/auth/login` and `/auth/callback` steps of the Google login flow, mounted as their own router). `main.py` then calls into `gmail.py` and `ai.py` internally when you click "Fetch Emails," and into `database.py` for everything that needs remembering. `gmail.py` does declare its own router too, but it has no actual routes defined on it — it's mounted but currently unused by the browser. `evaluate_ai.py` is a separate script run manually in a terminal — not part of the running website at all.
 ---
 
 ## 🔄 How It Works — The Complete Flow
