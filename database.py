@@ -484,4 +484,4 @@ if __name__ == "__main__":
     print(f"✅ Stats: {stats}")
 
     print("\n🎉 database.py is working perfectly with PostgreSQL!")
-    #ci
+    
