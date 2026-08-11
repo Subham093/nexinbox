@@ -332,17 +332,36 @@ def strip_html(html: str) -> str:
     return html_module.unescape(html)
 
 
+
+# Zero-width / invisible Unicode characters. Some marketing platforms
+# (e.g. the Unstop email that surfaced this) pad the very start of the
+# message with hundreds of these, interleaved with plain spaces, to
+# manipulate the preview text shown by email clients. They're invisible
+# in a real inbox, but with no HTML tags around them, strip_html() never
+# sees them, and they're not caught by ordinary whitespace collapsing
+# because they aren't plain spaces/tabs — so they were showing up as a
+# long line of visible glyphs at the top of the dashboard's email view.
+_INVISIBLE_CHARS_RE = re.compile(
+    r'[\u200B\u200C\u200D\u200E\u200F\u2060\u180E\uFEFF\u034F\u00AD]'
+)
+
+
 def clean_text(text: str) -> str:
     """
     Cleans up extracted email text for display.
 
-    FIX: the previous version joined every non-empty line with a single
-    space, which flattened paragraph breaks even for emails that DID
-    have real structure (e.g. from strip_html's newlines, or plain-text
-    emails with intentional line breaks). Now line breaks are preserved
-    — the frontend already renders body text with `white-space: pre-wrap`
-    (see base.css / email_detail.html), so real newlines now actually
-    produce real paragraph breaks on screen instead of being discarded.
+    FIX 1: the previous version joined every non-empty line with a
+    single space, which flattened paragraph breaks even for emails that
+    DID have real structure (e.g. from strip_html's newlines, or
+    plain-text emails with intentional line breaks). Now line breaks
+    are preserved — the frontend already renders body text with
+    `white-space: pre-wrap` (see base.css / email_detail.html), so real
+    newlines now actually produce real paragraph breaks on screen
+    instead of being discarded.
+
+    FIX 2: strips invisible zero-width Unicode characters (see
+    _INVISIBLE_CHARS_RE above) before any other processing, so they
+    can't survive as a junk line of symbols.
 
     Also shortens long inline tracking/redirect URLs (very common in
     newsletter-style HTML emails, e.g. LinkedIn's "5 must reads") since
@@ -354,12 +373,15 @@ def clean_text(text: str) -> str:
         url = match.group(0)
         return url if len(url) <= 60 else url[:40] + "…"
 
-    # Collapse repeated horizontal whitespace per line, strip trailing/
-    # leading spaces, and shorten oversized URLs — but keep the line
-    # breaks themselves intact.
+    # Strip invisible characters FIRST, then collapse whitespace, then
+    # shorten URLs — order matters: if invisible chars were left in,
+    # a line made up of only them + spaces wouldn't collapse down to a
+    # true empty string, and would survive as a "blank-looking but not
+    # blank" junk line.
     lines = []
     for raw_line in text.splitlines():
-        line = re.sub(r'[ \t]+', ' ', raw_line).strip()
+        line = _INVISIBLE_CHARS_RE.sub('', raw_line)
+        line = re.sub(r'[ \t]+', ' ', line).strip()
         line = re.sub(r'https?://\S+', shorten_url, line)
         lines.append(line)
 
@@ -430,4 +452,3 @@ def parse_email_date(date_str: str) -> str:
             continue
 
     return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
-#ci
