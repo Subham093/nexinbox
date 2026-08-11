@@ -20,6 +20,20 @@ GMAIL_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
 # per-user setting instead of a hardcoded constant.
 IST = timezone(timedelta(hours=5, minutes=30))
 
+# Zero-width / invisible Unicode characters. Some marketing platforms
+# (e.g. the Unstop email that surfaced this) pad the very start of the
+# message with hundreds of these, interleaved with plain spaces, to
+# manipulate the preview text shown by email clients. They're invisible
+# in a real inbox, but with no HTML tags around them, strip_html() never
+# sees them, and they're not caught by ordinary whitespace collapsing
+# because they aren't plain spaces/tabs — so they were showing up as a
+# long line of visible glyphs in the dashboard's email view. Defined
+# once at module level so both clean_snippet() and clean_text() use it
+# consistently.
+_INVISIBLE_CHARS_RE = re.compile(
+    r'[\u200B\u200C\u200D\u200E\u200F\u2060\u180E\uFEFF\u034F\u00AD]'
+)
+
 
 async def fetch_and_analyze_emails(user_email: str, access_token: str, skip_existing: bool = True):
     """
@@ -267,7 +281,24 @@ def decode_mime_header(value: str) -> str:
 
 
 def clean_snippet(snippet: str) -> str:
-    return html_module.unescape(snippet) if snippet else ""
+    """
+    Cleans a Gmail-generated snippet for display.
+
+    FIX: previously only HTML-unescaped the snippet. But
+    email_detail.html falls back to displaying the snippet directly
+    when an email has no parsed body:
+        {{ email.body or email.snippet or 'No content available.' }}
+    so any invisible zero-width Unicode characters embedded in the
+    snippet — the same kind of junk seen in the Unstop email that
+    prompted this fix — could still reach the screen even after the
+    body-level fix in clean_text(). Applying the same stripping here
+    closes that path.
+    """
+    if not snippet:
+        return ""
+    snippet = _INVISIBLE_CHARS_RE.sub('', snippet)
+    snippet = re.sub(r'[ \t]+', ' ', snippet).strip()
+    return html_module.unescape(snippet)
 
 
 def extract_body(payload: dict) -> str:
@@ -331,19 +362,6 @@ def strip_html(html: str) -> str:
 
     return html_module.unescape(html)
 
-
-
-# Zero-width / invisible Unicode characters. Some marketing platforms
-# (e.g. the Unstop email that surfaced this) pad the very start of the
-# message with hundreds of these, interleaved with plain spaces, to
-# manipulate the preview text shown by email clients. They're invisible
-# in a real inbox, but with no HTML tags around them, strip_html() never
-# sees them, and they're not caught by ordinary whitespace collapsing
-# because they aren't plain spaces/tabs — so they were showing up as a
-# long line of visible glyphs at the top of the dashboard's email view.
-_INVISIBLE_CHARS_RE = re.compile(
-    r'[\u200B\u200C\u200D\u200E\u200F\u2060\u180E\uFEFF\u034F\u00AD]'
-)
 
 
 def clean_text(text: str) -> str:
