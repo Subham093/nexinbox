@@ -332,35 +332,106 @@ def decode_base64(data: str) -> str:
         return ""
 
 
+from html.parser import HTMLParser
+
+_BLOCK_TAGS = {
+    'p', 'div', 'tr', 'table', 'ul', 'ol',
+    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'section', 'article', 'header', 'footer', 'blockquote',
+}
+_SPACE_TAGS = {'td', 'th'}  # table cells: separate with a space, not a
+                            # full newline, so a row of cells still
+                            # reads as one line instead of fragmenting
+_SKIP_CONTENT_TAGS = {'script', 'style', 'head', 'title'}
+
+
+class _EmailHTMLToText(HTMLParser):
+    """
+    Converts HTML into plain text by actually walking the parsed tag
+    tree, instead of guessing tag boundaries with regex. This is the
+    structural fix for the regex approach hitting new edge cases with
+    every new sender's HTML: HTMLParser (Python's own standard-library
+    parser) handles arbitrary nesting, malformed/unclosed tags, and
+    attribute quirks correctly by construction — regex fundamentally
+    cannot do this reliably for real-world HTML, no matter how many
+    patterns get added to it.
+
+    convert_charrefs=True (the default) means handle_data() already
+    receives HTML entities like &amp; decoded, so no separate unescape
+    step is needed afterward.
+    """
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self._skip_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        if tag in _SKIP_CONTENT_TAGS:
+            self._skip_depth += 1
+        elif tag == 'br':
+            self.parts.append('\n')
+        elif tag == 'li':
+            self.parts.append('\n• ')
+        elif tag in _SPACE_TAGS:
+            self.parts.append(' ')
+        elif tag in _BLOCK_TAGS:
+            self.parts.append('\n')
+
+    def handle_startendtag(self, tag, attrs):
+        # Self-closing tags like <br/> — handled the same as a normal
+        # start tag (handle_starttag isn't called separately for these).
+        self.handle_starttag(tag, attrs)
+
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+        if tag in _SKIP_CONTENT_TAGS:
+            self._skip_depth = max(0, self._skip_depth - 1)
+        elif tag in _BLOCK_TAGS or tag == 'li':
+            self.parts.append('\n')
+
+    def handle_data(self, data):
+        if self._skip_depth == 0:
+            self.parts.append(data)
+
+    def get_text(self):
+        return ''.join(self.parts)
+
+
 def strip_html(html: str) -> str:
     """
-    Converts raw HTML email bodies into plain text.
+    Converts raw HTML email bodies into plain text using a real HTML
+    parser (see _EmailHTMLToText above) rather than regex tag-matching.
 
-    FIX: the previous version turned EVERY tag — <p>, <div>, <br>, <b>,
-    <a>, all of it — into a single space, which threw away all paragraph
-    and line structure and produced one giant run-on wall of text (this
-    is what made emails unreadable in the dashboard). Now, tags that
-    represent an actual line/paragraph break in the original email
-    (<br>, </p>, </div>, </li>, </tr>, headings) are converted into real
-    newline characters BEFORE the generic tag-stripping pass runs, so
-    the paragraph structure the sender intended survives into the
-    plain-text version. List items also get a leading bullet so numbered
-    "5 must reads"-style newsletters don't collapse into a single line.
+    HISTORY: the original version turned EVERY tag into a single space,
+    collapsing all paragraph/list structure into one run-on wall of
+    text. A later fix added regex rules to convert specific closing
+    tags (</p>, </div>, </li>, etc.) into newlines before stripping —
+    this worked for the samples tested at the time, but every new
+    sender's HTML structure was a fresh chance for the regex patterns
+    to miss something (nested tags, unusual attributes, self-closing
+    variants). This version replaces that regex approach entirely with
+    HTMLParser, which walks the actual parsed tag tree and can't be
+    fooled by nesting or malformed markup the way a flat regex scan can.
+
+    KNOWN LIMITATION (not fixable by any HTML-to-text approach,
+    documented in README_EMAIL_TEXT_CLEANING.md): if a sender's
+    original HTML relies on CSS margin/padding to create a *visual*
+    gap between two elements with no actual space character in the
+    underlying text (e.g. "the</span><span>right"), that space simply
+    doesn't exist in the extractable text and cannot be recovered.
     """
-    html = re.sub(r'<(script|style)[^>]*>.*?</(script|style)>', '',
-                  html, flags=re.DOTALL | re.IGNORECASE)
-
-    # Line/paragraph-breaking tags → real newlines, BEFORE the generic
-    # tag stripper below turns everything into a plain space.
-    html = re.sub(r'<br\s*/?>', '\n', html, flags=re.IGNORECASE)
-    html = re.sub(r'</(p|div|li|tr|h[1-6])>', '\n', html, flags=re.IGNORECASE)
-    html = re.sub(r'<li[^>]*>', '\n• ', html, flags=re.IGNORECASE)
-
-    # Everything else (spans, links, bold, tables, etc.) just becomes a
-    # space so words on either side of a tag don't get glued together.
-    html = re.sub(r'<[^>]+>', ' ', html)
-
-    return html_module.unescape(html)
+    parser = _EmailHTMLToText()
+    try:
+        parser.feed(html)
+        parser.close()
+    except Exception:
+        # Malformed HTML that even HTMLParser chokes on — fail safe by
+        # returning whatever was successfully parsed before the error,
+        # rather than crashing the whole email fetch.
+        pass
+    return parser.get_text()
 
 
 
