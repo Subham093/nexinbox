@@ -400,6 +400,14 @@ def clean_text(text: str) -> str:
     for raw_line in text.splitlines():
         line = _INVISIBLE_CHARS_RE.sub('', raw_line)
         line = re.sub(r'[ \t]+', ' ', line).strip()
+        # Some marketing HTML (e.g. Myntra's) omits the space after a
+        # comma between words — "clothing,footwear,accessories" — likely
+        # because the visual gap in the original email came from CSS
+        # margin/padding rather than an actual space character, which
+        # plain-text extraction has no way to recover. This adds a space
+        # back only when the comma is followed by a letter, NOT a digit
+        # — so "₹10,000" (a thousands separator) is left untouched.
+        line = re.sub(r',(?=[A-Za-z])', ', ', line)
         line = re.sub(r'https?://\S+', shorten_url, line)
         lines.append(line)
 
