@@ -302,16 +302,85 @@ def decode_base64(data: str) -> str:
 
 
 def strip_html(html: str) -> str:
+    """
+    Converts raw HTML email bodies into plain text.
+
+    FIX: the previous version turned EVERY tag — <p>, <div>, <br>, <b>,
+    <a>, all of it — into a single space, which threw away all paragraph
+    and line structure and produced one giant run-on wall of text (this
+    is what made emails unreadable in the dashboard). Now, tags that
+    represent an actual line/paragraph break in the original email
+    (<br>, </p>, </div>, </li>, </tr>, headings) are converted into real
+    newline characters BEFORE the generic tag-stripping pass runs, so
+    the paragraph structure the sender intended survives into the
+    plain-text version. List items also get a leading bullet so numbered
+    "5 must reads"-style newsletters don't collapse into a single line.
+    """
     html = re.sub(r'<(script|style)[^>]*>.*?</(script|style)>', '',
                   html, flags=re.DOTALL | re.IGNORECASE)
+
+    # Line/paragraph-breaking tags → real newlines, BEFORE the generic
+    # tag stripper below turns everything into a plain space.
+    html = re.sub(r'<br\s*/?>', '\n', html, flags=re.IGNORECASE)
+    html = re.sub(r'</(p|div|li|tr|h[1-6])>', '\n', html, flags=re.IGNORECASE)
+    html = re.sub(r'<li[^>]*>', '\n• ', html, flags=re.IGNORECASE)
+
+    # Everything else (spans, links, bold, tables, etc.) just becomes a
+    # space so words on either side of a tag don't get glued together.
     html = re.sub(r'<[^>]+>', ' ', html)
+
     return html_module.unescape(html)
 
 
 def clean_text(text: str) -> str:
-    lines = [line.strip() for line in text.splitlines()]
-    lines = [line for line in lines if line]
-    return " ".join(lines[:100])
+    """
+    Cleans up extracted email text for display.
+
+    FIX: the previous version joined every non-empty line with a single
+    space, which flattened paragraph breaks even for emails that DID
+    have real structure (e.g. from strip_html's newlines, or plain-text
+    emails with intentional line breaks). Now line breaks are preserved
+    — the frontend already renders body text with `white-space: pre-wrap`
+    (see base.css / email_detail.html), so real newlines now actually
+    produce real paragraph breaks on screen instead of being discarded.
+
+    Also shortens long inline tracking/redirect URLs (very common in
+    newsletter-style HTML emails, e.g. LinkedIn's "5 must reads") since
+    a 300-character tracking link dropped mid-sentence was a big part of
+    what made these emails unreadable. This is a read-only dashboard, so
+    the full URL isn't needed for anything to stay clickable/functional.
+    """
+    def shorten_url(match):
+        url = match.group(0)
+        return url if len(url) <= 60 else url[:40] + "…"
+
+    # Collapse repeated horizontal whitespace per line, strip trailing/
+    # leading spaces, and shorten oversized URLs — but keep the line
+    # breaks themselves intact.
+    lines = []
+    for raw_line in text.splitlines():
+        line = re.sub(r'[ \t]+', ' ', raw_line).strip()
+        line = re.sub(r'https?://\S+', shorten_url, line)
+        lines.append(line)
+
+    # Collapse 2+ consecutive blank lines down to a single blank line
+    # (i.e. one paragraph break, not a wall of empty space), and trim
+    # leading/trailing blank lines.
+    cleaned_lines = []
+    prev_blank = False
+    for line in lines:
+        is_blank = (line == "")
+        if is_blank and prev_blank:
+            continue
+        cleaned_lines.append(line)
+        prev_blank = is_blank
+
+    while cleaned_lines and cleaned_lines[0] == "":
+        cleaned_lines.pop(0)
+    while cleaned_lines and cleaned_lines[-1] == "":
+        cleaned_lines.pop()
+
+    return "\n".join(cleaned_lines[:200])
 
 
 def parse_email_date(date_str: str) -> str:
@@ -361,3 +430,4 @@ def parse_email_date(date_str: str) -> str:
             continue
 
     return datetime.now(IST).strftime("%Y-%m-%d %H:%M:%S")
+#ci
