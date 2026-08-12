@@ -537,7 +537,7 @@ No — one-directional. Reading in real Gmail eventually reflects here at your n
 It's classified incorrectly for that email — there's no way to manually correct a single email's label from the dashboard today. Running "Refresh" re-classifies everything, which may or may not change the result.
 </details>
 
-</details>
+<details>
 <summary><b>Why does clicking "Check New Emails" sometimes do nothing?</b></summary>
 <br>
 Usually working as intended — if no new mail arrived since your last fetch, there's nothing new to process. But it can also fail silently: if Gmail's read-access scope wasn't granted at login (403) or the access token expired and silent refresh also failed (401), the app currently redirects back to the dashboard with no visible error message — a known gap (see Security and Edge Cases above). Logging out and back in resolves this.
