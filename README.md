@@ -11,22 +11,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green"></a>
 </p>
 
-<p align="center"><b><a href="https://nexinbox.onrender.com">🔗 Live Demo</a></b> · <a href="#-what-is-this-really">What Is This?</a> · <a href="#️-architecture">Architecture</a> · <a href="#️-installation">Setup</a> · <a href="#-real-world-scenarios">Real-World Scenarios</a> · <a href="#-honest-limitations">Limitations</a></p>
-
 ---
 
-> 💡 **New here, and don't know what OAuth, an LLM, or a database is?** That's exactly who this README is written for. Every technical section below has a 🟢 **plain-English** explanation before the 🔵 **technical** one. Just read top to bottom.
+> 💡 **New here, and don't know what OAuth, an LLM, or a database is?** That's exactly who this README is written for. Every technical section below has a **plain-English** explanation before the **technical** one. Just read top to bottom.
 
-<!--
-🖼️ ADD BANNER SCREENSHOT HERE (top of README)
-What to add: A full-width screenshot of the populated dashboard — sidebar
-with filters, priority badges (🔴🟡🟢) and colored category tags visible
-in the email list, stats counters at the top.
-Where: Right below this comment, before the Table of Contents.
-Filename: docs/images/banner.png
-Purpose: The first thing anyone sees. Should say "this is a real, working
-product" before they've read a single word.
--->
 
 ## 📖 Table of Contents
 
@@ -34,7 +22,6 @@ product" before they've read a single word.
 - [The Problem It Solves](#-the-problem-it-solves)
 - [Who It's For](#-who-its-for)
 - [Features](#-features)
-- [Demo](#-demo)
 - [Architecture](#️-architecture)
 - [Tech Stack, Explained From Scratch](#-tech-stack-explained-from-scratch)
 - [Project Structure](#️-project-structure)
@@ -56,14 +43,13 @@ product" before they've read a single word.
 - [Honest Limitations](#-honest-limitations)
 - [Future Improvements / Roadmap](#-future-improvements--roadmap)
 - [What This Project Demonstrates](#-what-this-project-demonstrates)
-- [Placement / Interview Preparation](#-placement--interview-preparation)
-- [Resume Description](#-resume-description)
 - [Challenges Faced](#-challenges-faced)
 - [Key Learnings](#-key-learnings)
 - [FAQ](#-faq)
 - [Contributing](#-contributing)
 - [License](#-license)
 - [Author](#-author)
+- [Acknowledgements](#-acknowledgements)
 
 ---
 
@@ -74,6 +60,8 @@ Picture your Gmail inbox right now. Somewhere in there is an interview call you 
 **NexInbox is a program that opens your inbox for you, reads every email, and quietly sorts them** — this one's urgent, this one can wait, this one's just a sale — before you even look at it. Instead of a plain list of subject lines, you get a dashboard where the important stuff is already flagged 🔴, the maybe-later stuff is 🟡, and the stuff that genuinely doesn't matter is 🟢.
 
 It does this using an actual AI (a large language model), not a hardcoded list of rules — though there's a rules-based backup in case the AI is unreachable, explained in [Scenario 4](#scenario-4--the-ai-service-is-down-or-your-groq-key-is-missing).
+
+![Banner Screenshot](images/banner.png)
 
 ## 🎯 The Problem It Solves
 
@@ -102,18 +90,6 @@ Manually triaging a busy inbox is slow and error-prone — it's easy to skim pas
 | 🔄 | **Two Kinds of Refresh** | "Fetch" grabs only new mail; "Refresh" atomically wipes and re-checks everything |
 | 📄 | **Full Email View** | Full body + AI summary in one card |
 
----
-
-## 🎥 Demo
-
-<!--
-🖼️ ADD DEMO GIF HERE
-What to add: login → dashboard → click "Fetch Emails" → list populates
-with badges/tags → open one email → show the AI summary card.
-Where: Right below this comment.
-Filename: docs/images/demo.gif
-Purpose: Single highest-impact visual in this README.
--->
 
 ---
 
@@ -121,37 +97,7 @@ Purpose: Single highest-impact visual in this README.
 
 🟢 **Plain English:** your browser talks to a Python server (FastAPI). That server talks to three outside services on your behalf — Google (login + mail), Groq (AI classification), and a database (memory). Nothing outside ever talks to your browser directly.
 
-┌──────────────┐ ┌────────────────────┐ ┌──────────────────────┐
-│ Browser │ ───► │ FastAPI (main.py) │ ───► │ Jinja2 Templates │
-│ (what you │ ◄─── │ + login session │ ◄─── │ dashboard / email / │
-│ actually see)│ └─────────┬───────────┘ │ index .html │
-└──────────────┘ │ └──────────────────────┘
-┌──────────────┼───────────────┐
-▼ ▼ ▼
-┌───────────┐ ┌────────────┐ ┌───────────────┐
-│ auth.py │ │ gmail.py │ │ ai.py │
-│ "log me │ │ "get my │ │ "sort my │
-│ in with │ │ emails" │ │ emails" │
-│ Google" │ │ │ │ │
-└─────┬──────┘ └──────┬─────┘ └───────┬─────────┘
-│ │ │
-└────────────────┼────────────────┘
-▼
-┌─────────────────┐
-│ database.py │
-│ "remember │
-│ everything" │
-│ PostgreSQL/Supabase│
-└─────────────────┘
-
-
-<!--
-🖼️ ADD A POLISHED ARCHITECTURE DIAGRAM HERE (optional)
-What to add: A cleaner redraw of the diagram above (e.g. in Excalidraw).
-Where: Right below this comment.
-Filename: docs/images/architecture.png
-Purpose: Reads faster than ASCII for a skimming recruiter.
--->
+![Architecture Diagram](images/architectureemail.png)
 
 ---
 
@@ -256,16 +202,16 @@ Dashboard reloads with your color-coded, filterable inbox
 1. Install Python 3.12: `python --version`
 2. Clone the repo: `git clone https://github.com/Subham093/nexinbox.git && cd nexinbox`
 3. Create a virtual environment: `python -m venv venv`
-4. Activate it — Windows (PowerShell): `venv\Scripts\Activate.ps1` (if this fails with a permissions error, run 
-`Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` 
-first, then try again) 
- .Windows (cmd): `venv\Scripts\activate.bat` 
- · Mac/Linux: `source venv/bin/activate`
+4. Activate it:
+   - **Windows (PowerShell):** `venv\Scripts\Activate.ps1`
+     - If this fails with a permissions error, run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` first, then try again.
+   - **Windows (cmd):** `venv\Scripts\activate.bat`
+   - **Mac/Linux:** `source venv/bin/activate`
 5. Install packages: `pip install -r requirements.txt`
-6. Set up a Google Cloud project with OAuth credentials + the Gmail API enabled
-7. Get a free Groq API key at [console.groq.com](https://console.groq.com)
-8. Set up a PostgreSQL database (the live version uses [Supabase](https://supabase.com))
-9. Create a `.env` file (see Configuration below)
+6. Set up a Google Cloud project with OAuth credentials + the Gmail API enabled.
+7. Get a free Groq API key at [console.groq.com](https://console.groq.com).
+8. Set up a PostgreSQL database (the live version uses [Supabase](https://supabase.com)).
+9. Create a `.env` file (see Configuration below).
 10. Run it: `python main.py` → open `http://localhost:8000`
 
 ## 🔐 Configuration
@@ -307,17 +253,9 @@ ENVIRONMENT=development               # set to "production" when deploying
 
 ### Scenario 1 — First Login and First Fetch
 
-<!--
-🖼️ ADD SCREENSHOT HERE: index.html landing page
-Where: Right below this heading. Filename: docs/images/login-page.png
--->
-
 You log in, land on an empty dashboard, click **Fetch Emails**. NexInbox pulls your latest 30 inbox messages and classifies all of them, since none exist yet.
 
-<!--
-🖼️ ADD SCREENSHOT HERE: populated dashboard right after first fetch
-Filename: docs/images/first-fetch.png
--->
+![WholeDashboard Screenshot](images/wholedashboard.png)
 
 ### Scenario 2 — Clicking "Check New Emails" Later
 
@@ -359,7 +297,7 @@ Every email still gets a priority and category — just a cruder one. **There is
 
 ### Scenario 5 — Opening an Email
 
-Marks it read **inside NexInbox's own database** immediately. This does **not** reach out and mark it read in your actual Gmail — the two "read" states are tracked completely separately after that point, and the relationship never runs the other direction either (reading in Gmail is only reflected here at your *next* fetch).
+Marks it read **inside NexInbox's own database** immediately. This does **not** reach out and mark it read in your actual Gmail — the two "read" states are tracked completely separately after that point. The reverse sync is also one-directional and limited: a normal "Check New Emails" click skips any email already in the database entirely, so it will **not** pick up a newer read status from Gmail for stored emails — only a **Full Refresh** re-fetches and re-syncs every email's real read status from Gmail.
 
 ### Scenario 6 — Your Google Access Token Expires *(checked only when you next click Fetch/Refresh)*
 
@@ -454,7 +392,7 @@ pytest -v
 
 🟢 **What this means:** automated checks that run real functions and confirm they return the right answer — no manual clicking required to verify these specific pieces.
 
-**What's actually covered:** the pure, no-network functions in `gmail.py` — sender name/email extraction, HTML-entity cleanup, and email date parsing (9 tests total).
+**What's actually covered:** the pure, no-network functions in `gmail.py` — sender name/email extraction, email date parsing, and the full HTML-to-text cleaning pipeline (`strip_html`, `clean_text`, `clean_snippet`): paragraph/list structure, table-cell handling, malformed HTML, invisible-Unicode stripping, tracking-URL shortening, and comma-spacing correction (24 tests total).
 
 **Honestly not covered:** the OAuth login flow, live Gmail API calls, the AI classification logic, the database layer, and every HTTP route. All depend on external services or a live database and would need mocking to test properly — a real, acknowledged gap.
 
@@ -543,7 +481,7 @@ NexInbox is live at **[nexinbox.onrender.com](https://nexinbox.onrender.com)**, 
 **Mid-term**
 - [ ] Encrypt Gmail tokens at rest, with a real key-management approach
 - [ ] Pagination beyond the current 30-fetch / 50-display caps
-- [ ] Merge in automated test coverage for `auth.py`, `ai.py`, and `database.py` — already built and verified (mocked connection pool, transaction rollback tests, OAuth token-refresh tests) but not currently included in this version of the repo
+- [ ] Add automated test coverage for `auth.py`, `ai.py`, and `database.py` — would require mocking the connection pool, Gmail/Groq API calls, and OAuth token exchange, since none of these currently have automated tests
 
 **Long-term**
 - [ ] Scheduled auto-refresh (cron or Gmail push notifications) instead of manual clicking
@@ -569,6 +507,7 @@ A hand-implemented OAuth 2.0 authorization-code flow (not a wrapper library) wit
 - OAuth 2.0 is easy to *use* via a library, but implementing token exchange, CSRF state, and refresh by hand surfaces real security considerations easy to skip with an SDK
 - A working fallback path is often more valuable in an interview conversation than the primary AI feature itself — it demonstrates thinking about failure, not just the happy path
 - Schema migrations on an already-deployed database need explicit `ALTER TABLE` statements — `CREATE TABLE IF NOT EXISTS` silently does nothing on existing tables
+- Regex is fine for a handful of known HTML patterns, but it doesn't generalize — every new sender's email structure was a fresh chance to break it. Rewriting `strip_html()` around Python's built-in `html.parser.HTMLParser` fixed that at the root instead of adding another pattern, and writing tests for the rewrite caught a real bug (table cells gluing together, e.g. `<td>Row 1</td><td>Row 2</td>` rendering as `"Row 1Row 2"`) before it ever reached a real user
 
 ---
 
@@ -598,10 +537,10 @@ No — one-directional. Reading in real Gmail eventually reflects here at your n
 It's classified incorrectly for that email — there's no way to manually correct a single email's label from the dashboard today. Running "Refresh" re-classifies everything, which may or may not change the result.
 </details>
 
-<details>
-<summary><b>Why does clicking "Fetch Emails" twice sometimes do nothing?</b></summary>
+</details>
+<summary><b>Why does clicking "Check New Emails" sometimes do nothing?</b></summary>
 <br>
-Working as intended — if no new mail arrived since your last fetch, there's nothing new to process.
+Usually working as intended — if no new mail arrived since your last fetch, there's nothing new to process. But it can also fail silently: if Gmail's read-access scope wasn't granted at login (403) or the access token expired and silent refresh also failed (401), the app currently redirects back to the dashboard with no visible error message — a known gap (see Security and Edge Cases above). Logging out and back in resolves this.
 </details>
 
 <details>
@@ -614,14 +553,53 @@ Not currently — one Google account per login session.
 
 ## 🤝 Contributing
 
-This is currently a personal portfolio project and not actively seeking contributions, but suggestions and issues are welcome via GitHub.
+This started as a personal portfolio and internship project, but contributions, bug reports, and suggestions are genuinely welcome.
+
+To contribute:
+
+1. Fork the repository
+2. Create a new feature branch:
+```bash
+   git checkout -b feature/your-feature-name
+```
+3. Make your changes
+4. If you're touching `gmail.py`'s parsing logic, run the existing tests first:
+```bash
+   pytest -v
+```
+5. Commit your changes with a clear message and push the branch
+6. Open a Pull Request describing what you changed and why
+
+If you're picking something to work on, the [Roadmap](#-future-improvements--roadmap) above lists real, honest gaps — encrypting stored tokens, adding test coverage for `auth.py`/`ai.py`/`database.py`, or a visible AI-fallback indicator are all good starting points.
+
+---
 
 ## 📜 License
 
-This project is licensed under the [MIT License](./LICENSE).
+This project is licensed under the [MIT License](./LICENSE) — free to use, modify, and distribute, with attribution.
+
+---
 
 ## 👤 Author
 
 **Subham Maheswari Jena**
 
-Built as part of an internship project (NALCO) and a placement-interview portfolio, exploring OAuth 2.0, LLM API integration, and PostgreSQL-backed full-stack development with FastAPI.
+Built as part of an internship project (NALCO), exploring OAuth 2.0, LLM API integration, and PostgreSQL-backed full-stack development with FastAPI.
+
+- GitHub: [@Subham093](https://github.com/Subham093)
+- Project: [nexinbox](https://github.com/Subham093/nexinbox)
+
+---
+
+## 🙏 Acknowledgements
+
+This project was built with the help of the following technologies and services:
+
+- **[FastAPI](https://fastapi.tiangolo.com/)** — backend web framework
+- **[Groq](https://groq.com/)** — LLM inference for email classification
+- **[Google Gmail API & OAuth 2.0](https://developers.google.com/gmail/api)** — authentication and email access
+- **[Supabase](https://supabase.com/)** — managed PostgreSQL hosting
+- **[Render](https://render.com/)** — application hosting and deployment
+- **[GitHub Actions](https://github.com/features/actions)** — continuous integration
+
+A huge thanks to the open-source community and the developers maintaining these projects.
